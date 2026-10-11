@@ -53,9 +53,9 @@ export function AppShell() {
           <div className="header-actions">
             {user ? (
               <>
-                <span className="small muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={user.email}>
+                <Link to="/conta" className="small muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} title={`${user.email} — minha conta`}>
                   {user.name}
-                </span>
+                </Link>
                 <button
                   type="button"
                   className="btn btn-sm"

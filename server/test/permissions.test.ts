@@ -156,4 +156,15 @@ describe('20.1 Permissões e autorização no backend', () => {
     const log = await queryOne<{ data: unknown }>(`SELECT data FROM audit_logs WHERE action = 'auth.login_failed' ORDER BY id DESC LIMIT 1`);
     expect(JSON.stringify(log!.data)).not.toContain('senhaErrada123');
   });
+
+  it('troca de senha exige a senha atual, valida a força e encerra as demais sessões', async () => {
+    const user = await createUser({ type: 'external' });
+    const s1 = await login(user);
+    const s2 = await login(user);
+    expect((await s1.request('POST', '/api/auth/change-password', { currentPassword: 'errada123', newPassword: 'NovaSenha123' })).statusCode).toBe(422);
+    expect((await s1.request('POST', '/api/auth/change-password', { currentPassword: 'Senha12345!', newPassword: 'curta' })).statusCode).toBe(422);
+    expect((await s1.request('POST', '/api/auth/change-password', { currentPassword: 'Senha12345!', newPassword: 'NovaSenha123' })).statusCode).toBe(200);
+    expect((await s1.request('GET', '/api/auth/me')).json().user).not.toBeNull();
+    expect((await s2.request('GET', '/api/auth/me')).json().user).toBeNull();
+  });
 });

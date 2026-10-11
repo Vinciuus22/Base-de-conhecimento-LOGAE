@@ -8,6 +8,7 @@ import { HomePage } from './pages/Home';
 import { SearchPage } from './pages/Search';
 import { ArticlePage } from './pages/Article';
 import { LoginPage } from './pages/Login';
+import { AccountPage } from './pages/Account';
 import { AnnouncementEditorPage, AnnouncementsManagePage, AnnouncementsPage, AnnouncementViewPage } from './pages/Announcements';
 import { MyTicketsPage } from './pages/tickets/MyTickets';
 import { NewTicketPage } from './pages/tickets/NewTicket';
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
       { path: '/comunicados/:id', element: <AnnouncementViewPage /> },
       { path: '/documentos/:id', element: <DocumentViewPage /> },
       { path: '/entrar', element: <LoginPage /> },
+      { path: '/conta', element: <AccountPage /> },
       { path: '/tickets', element: <MyTicketsPage /> },
       { path: '/tickets/novo', element: <NewTicketPage /> },
       { path: '/tickets/:id', element: <TicketDetailPage /> },
