@@ -1,0 +1,18 @@
+import os from 'node:os';
+import path from 'node:path';
+
+// Ambiente isolado para os testes (banco kb_test e armazenamento temporário).
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://kb:kb@localhost:5432/kb_test';
+process.env.STORAGE_DRIVER = 'local';
+process.env.STORAGE_LOCAL_DIR = path.join(os.tmpdir(), 'kb-test-storage');
+process.env.LOG_LEVEL = 'silent';
+process.env.ANTHROPIC_API_KEY = '';
+process.env.VOYAGE_API_KEY = '';
+process.env.PUBLIC_ANONYMOUS_ACCESS = 'true';
+process.env.RATE_LIMIT_LOGIN_PER_MIN = '10000';
+process.env.RATE_LIMIT_CHAT_PER_MIN = '10000';
+process.env.RATE_LIMIT_TICKETS_PER_HOUR = '10000';
+process.env.LOCK_TTL_SECONDS = '120';
+process.env.SERVE_WEB = 'false';
+process.env.PUBLIC_BASE_URL = 'http://localhost:5173';
