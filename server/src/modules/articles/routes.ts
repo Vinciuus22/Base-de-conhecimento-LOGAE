@@ -506,7 +506,7 @@ export default async function articleRoutes(app: FastifyInstance): Promise<void>
   app.get('/api/home', async (req) => {
     const user = req.auth;
     const vis = anonymousAllowed(user) ? allowedVisibilities(user) : [];
-    const [categories, recent, popular, announcements, systems] = await Promise.all([
+    const [categories, recent, popular, updates, systems] = await Promise.all([
       query(
         `SELECT c.id, c.name, c.slug, c.description, c.icon,
                 (SELECT count(*) FROM articles a WHERE a.category_id = c.id AND a.status = 'published' AND a.visibility = ANY($1::text[]))::int AS article_count
@@ -528,10 +528,10 @@ export default async function articleRoutes(app: FastifyInstance): Promise<void>
         [vis],
       ),
       query(
-        `SELECT n.id, n.title, n.category, n.published_at, s.name AS system
-           FROM announcements n LEFT JOIN systems s ON s.id = n.system_id
-          WHERE n.status = 'published' AND n.visibility = ANY($1::text[])
-          ORDER BY n.published_at DESC LIMIT 5`,
+        `SELECT u.id, u.jira_key, u.title, u.release, u.completed_at, u.published_at, s.name AS system
+           FROM updates u LEFT JOIN systems s ON s.id = u.system_id
+          WHERE u.status = 'published' AND u.visibility = ANY($1::text[])
+          ORDER BY coalesce(u.completed_at, u.published_at) DESC LIMIT 5`,
         [vis],
       ),
       query(`SELECT id, name, slug FROM systems WHERE active ORDER BY name`),
@@ -541,7 +541,7 @@ export default async function articleRoutes(app: FastifyInstance): Promise<void>
       categories: categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description, icon: c.icon, articleCount: c.article_count })),
       recent: recent.map(map),
       popular: popular.map(map),
-      announcements: announcements.map((n) => ({ id: n.id, title: n.title, category: n.category, publishedAt: n.published_at, system: n.system })),
+      updates: updates.map((n) => ({ id: n.id, jiraKey: n.jira_key, title: n.title, release: n.release, date: n.completed_at ?? n.published_at, system: n.system })),
       systems,
     };
   });

@@ -20,6 +20,7 @@ export interface AppConfig {
   docConversion: boolean;
   ai: { generative: boolean; semantic: boolean };
   ticketReopenWindowDays: number;
+  testAccounts?: Array<{ type: 'internal' | 'external'; label: string; email: string; password: string }>;
 }
 
 export interface Named {

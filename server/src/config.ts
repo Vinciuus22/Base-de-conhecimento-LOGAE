@@ -67,6 +67,22 @@ const schema = z.object({
   EMBEDDINGS_MODEL: z.string().default('voyage-3.5'),
   AI_CONVERSATION_RETENTION_DAYS: int(180),
 
+  // Integração com o Jira (atualizações)
+  JIRA_WEBHOOK_SECRET: z.string().optional(),
+  JIRA_BASE_URL: z.string().optional(),
+  JIRA_EMAIL: z.string().optional(),
+  JIRA_API_TOKEN: z.string().optional(),
+  JIRA_PROJECT_KEYS: z.string().optional(),
+  /** Campo "release": id (customfield_12345), "fixVersions" ou o nome do campo. */
+  JIRA_RELEASE_FIELD: z.string().default('fixVersions'),
+  /** Campo "Público alvo": id (customfield_12345) ou nome do campo. */
+  JIRA_AUDIENCE_FIELD: z.string().default('Público alvo'),
+  JIRA_DONE_STATUSES: z.string().default('Done,Concluído,Concluida,Concluída,Finalizado,Resolvido'),
+  JIRA_SYNC_MINUTES: int(0),
+
+  // Contas de teste (NÃO habilitar em produção)
+  TEST_LOGINS_ENABLED: bool(false),
+
   // Rate limit
   RATE_LIMIT_LOGIN_PER_MIN: int(10),
   RATE_LIMIT_CHAT_PER_MIN: int(20),

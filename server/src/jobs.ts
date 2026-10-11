@@ -2,6 +2,7 @@ import { config } from './config.js';
 import { query } from './db/pool.js';
 import { purgeExpiredLocks } from './modules/articles/locks.js';
 import { processPendingEmbeddings } from './modules/ai/embeddings.js';
+import { jiraConfigured, syncFromJira } from './modules/updates/jira.js';
 import { resumePendingDocuments } from './modules/documents/service.js';
 
 /** Tarefas periódicas de manutenção (bloqueios expirados, sessões, retenção de dados). */
@@ -34,6 +35,12 @@ export function startJobs(log: (msg: string, err?: unknown) => void): () => void
       6 * 3600_000,
     ),
   );
+
+  // Sincronização periódica opcional com o Jira (complementa o webhook).
+  const syncMinutes = config().JIRA_SYNC_MINUTES;
+  if (syncMinutes > 0 && jiraConfigured()) {
+    timers.push(setInterval(safe('jira-sync', () => syncFromJira(syncMinutes * 2)), syncMinutes * 60_000));
+  }
 
   void safe('resume-documents', resumePendingDocuments)();
   void safe('embeddings', processPendingEmbeddings)();

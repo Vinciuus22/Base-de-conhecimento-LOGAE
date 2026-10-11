@@ -92,3 +92,9 @@ web/src         Interface React (páginas públicas, ambiente interno, editor)
 web/e2e         Testes Playwright
 docs/           Documentação técnica
 ```
+
+## Atualizações (Jira) e Comunicados
+
+- **Atualizações**: vêm do Jira. Quando uma tarefa é concluída com o campo de release preenchido, ela aparece em `/atualizacoes`. O campo **Público alvo** define quem enxerga (clientes ou só internos). Clientes e visitantes apenas visualizam. Configuração em `docs/VARIAVEIS_DE_AMBIENTE.md`.
+- **Comunicados** (`/comunicados`): área separada, só para usuários internos; quem tem `announcements.manage` cadastra avisos com imagens e vídeos e os vincula a uma ou mais plataformas.
+- **Contas de teste** (apenas desenvolvimento): `interno@teste.com` e `externo@teste.com`, senha `Teste@12345` (`SEED_TEST_USERS=true` + `TEST_LOGINS_ENABLED=true`).

@@ -3,8 +3,9 @@ import { runMigrations } from '../db/migrate.js';
 import { seed } from '../db/seed.js';
 import { validatePasswordStrength } from '../lib/crypto.js';
 
-const adminEmail = process.env.SEED_ADMIN_EMAIL;
-const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+const testUsers = process.env.SEED_TEST_USERS === 'true';
+const adminEmail = process.env.SEED_ADMIN_EMAIL ?? (testUsers ? 'admin@exemplo.com' : undefined);
+const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? (testUsers ? 'Admin12345!' : undefined);
 if (!adminEmail || !adminPassword) {
   console.error('Defina SEED_ADMIN_EMAIL e SEED_ADMIN_PASSWORD para criar o administrador inicial.');
   process.exit(1);
@@ -21,6 +22,7 @@ if (demo && process.env.NODE_ENV === 'production') {
 }
 
 await runMigrations();
-await seed({ adminEmail, adminPassword, demo, demoPassword: process.env.SEED_DEMO_PASSWORD });
+await seed({ adminEmail, adminPassword, demo, testUsers, demoPassword: process.env.SEED_DEMO_PASSWORD });
+if (testUsers) console.log('Contas de teste: interno@teste.com / externo@teste.com (senha Teste@12345)');
 console.log(`Seed concluído. Administrador: ${adminEmail}${demo ? ' (com dados de demonstração)' : ''}`);
 await closePool();

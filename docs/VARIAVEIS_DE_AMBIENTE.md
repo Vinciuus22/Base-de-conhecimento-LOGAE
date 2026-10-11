@@ -89,3 +89,17 @@ inicialização (`server/src/config.ts`); valores inválidos impedem a partida.
 | YouTube (navegador do usuário) | Não | — | Miniaturas/players do YouTube não carregam (redes que bloqueiam o domínio) |
 | ffmpeg | Recomendado | — | Miniatura de vídeo deve ser enviada manualmente |
 | LibreOffice | Não | — | `.doc` não é aceito (orienta salvar como `.docx`/PDF) |
+
+## Contas de teste e integração com o Jira
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `TEST_LOGINS_ENABLED` | `false` | Mostra na tela de login as contas de teste (`interno@teste.com` e `externo@teste.com`, senha `Teste@12345`). **Não habilite em produção.** |
+| `SEED_TEST_USERS` | `false` | No `npm run seed`, cria essas duas contas (o interno recebe o perfil de administrador; o externo pertence à "Empresa de Teste"). |
+| `JIRA_WEBHOOK_SECRET` | — | Segredo do webhook `POST /api/integrations/jira/webhook` (cabeçalho `X-Jira-Secret` ou `?secret=`). |
+| `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` | — | Acesso à API do Jira para a sincronização manual/periódica. |
+| `JIRA_PROJECT_KEYS` | — | Projetos considerados (lista separada por vírgulas); vazio = todos. |
+| `JIRA_RELEASE_FIELD` | `fixVersions` | Campo de release (nome ou `customfield_XXXXX`). Tarefa concluída **com release preenchida** vira atualização. |
+| `JIRA_AUDIENCE_FIELD` | `Público alvo` | Define quem vê a atualização: externo/cliente/ambos/todos → clientes e internos; interno, vazio ou desconhecido → somente internos. |
+| `JIRA_DONE_STATUSES` | Done,Concluído,… | Nomes de status tratados como concluídos (além da categoria "Done" do Jira). |
+| `JIRA_SYNC_MINUTES` | `0` | Intervalo da sincronização automática (0 desativa). |

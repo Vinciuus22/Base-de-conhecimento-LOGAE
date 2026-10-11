@@ -17,6 +17,7 @@ import {
   Users,
   Building2,
   Headset,
+  Rocket,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ChatWidget } from './ChatWidget';
@@ -46,7 +47,8 @@ export function AppShell() {
               Início
             </NavLink>
             <NavLink to="/busca">Pesquisar</NavLink>
-            <NavLink to="/comunicados">Comunicados</NavLink>
+            <NavLink to="/atualizacoes">Atualizações</NavLink>
+            {isInternal && <NavLink to="/comunicados">Comunicados</NavLink>}
             {user && <NavLink to="/tickets">Meus tickets</NavLink>}
             {isInternal && <NavLink to="/interno">Ambiente interno</NavLink>}
           </nav>
@@ -128,6 +130,11 @@ export function InternalLayout() {
         {can('announcements.manage') && (
           <SideLink to="/interno/comunicados" icon={<Megaphone size={18} aria-hidden />}>
             Comunicados
+          </SideLink>
+        )}
+        {can('updates.manage') && (
+          <SideLink to="/interno/atualizacoes" icon={<Rocket size={18} aria-hidden />}>
+            Atualizações (Jira)
           </SideLink>
         )}
         {can('documents.manage') && (

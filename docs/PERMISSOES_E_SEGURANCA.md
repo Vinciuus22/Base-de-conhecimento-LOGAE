@@ -20,7 +20,8 @@ usuário interno não acessa nada além do conteúdo público.
 | `articles.archive` | Arquivar e restaurar do arquivo | Sim |
 | `articles.history` | Consultar histórico e versões | Sim |
 | `categories.manage` | Categorias, sistemas, tags e sinônimos | Sim |
-| `announcements.manage` | Cadastrar e publicar comunicados | Sim |
+| `announcements.manage` | Cadastrar e publicar comunicados (exclusivos de usuários internos, vinculados a plataformas) | Sim |
+| `updates.manage` | Ocultar/exibir atualizações vindas do Jira e ajustar o público alvo | Sim |
 | `documents.manage` | Importar, aprovar, reprocessar e remover documentos | Sim |
 | `users.manage` | Usuários, empresas, perfis e permissões | Sim |
 | `audit.view` | Consultar auditoria | Sim |

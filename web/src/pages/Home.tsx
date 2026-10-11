@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, ChevronRight, Clock, FolderOpen, Megaphone, Search, Ticket, TrendingUp, Building } from 'lucide-react';
-import { ANNOUNCEMENT_CATEGORY_LABELS, type AnnouncementCategory } from '@shared/domain';
+import { Bot, ChevronRight, Clock, FolderOpen, Rocket, Search, Ticket, TrendingUp, Building } from 'lucide-react';
 import { get } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +12,7 @@ interface HomeData {
   categories: Array<{ id: string; name: string; slug: string; description: string | null; articleCount: number }>;
   recent: Array<{ id: string; slug: string; title: string; summary: string; updatedAt: string; category: string | null }>;
   popular: Array<{ id: string; slug: string; title: string; summary: string; updatedAt: string; category: string | null }>;
-  announcements: Array<{ id: string; title: string; category: AnnouncementCategory; publishedAt: string; system: string | null }>;
+  updates: Array<{ id: string; jiraKey: string; title: string; release: string; date: string; system: string | null }>;
 }
 
 export function SearchBox({ initial = '', autoFocus }: { initial?: string; autoFocus?: boolean }) {
@@ -156,21 +155,21 @@ export function HomePage() {
             <section className="card" aria-labelledby="ann-title">
               <div className="card-header">
                 <h2 id="ann-title" className="row" style={{ gap: 8 }}>
-                  <Megaphone size={18} aria-hidden /> Atualizações e comunicados
+                  <Rocket size={18} aria-hidden /> Atualizações
                 </h2>
-                <Link to="/comunicados" className="small">
-                  Ver todos <ChevronRight size={14} aria-hidden style={{ verticalAlign: 'middle' }} />
+                <Link to="/atualizacoes" className="small">
+                  Ver todas <ChevronRight size={14} aria-hidden style={{ verticalAlign: 'middle' }} />
                 </Link>
               </div>
-              {data.announcements.length === 0 ? (
-                <Empty title="Nenhum comunicado publicado." />
+              {data.updates.length === 0 ? (
+                <Empty title="Nenhuma atualização publicada." />
               ) : (
                 <ul className="article-list">
-                  {data.announcements.map((n) => (
+                  {data.updates.map((n) => (
                     <li key={n.id}>
-                      <Link to={`/comunicados/${n.id}`}>{n.title}</Link>
+                      <Link to={`/atualizacoes/${n.id}`}>{n.title}</Link>
                       <div className="tiny muted">
-                        {ANNOUNCEMENT_CATEGORY_LABELS[n.category]} {n.system && `· ${n.system}`} · {formatDate(n.publishedAt)}
+                        Release {n.release} {n.system && `· ${n.system}`} · {formatDate(n.date)}
                       </div>
                     </li>
                   ))}

@@ -135,8 +135,26 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     await page.goto('/');
     await expect(page.getByRole('button', { name: 'Abrir menu' })).toBeVisible();
     await page.getByRole('button', { name: 'Abrir menu' }).click();
-    await expect(page.getByRole('link', { name: 'Comunicados' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Atualizações' })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
+  });
+
+  test('contas de teste: interno gerencia comunicados; externo só visualiza atualizações', async ({ browser }) => {
+    const ext = await newSession(browser, { email: 'externo@teste.com', password: 'Teste@12345' });
+    await ext.page.goto('/atualizacoes');
+    await expect(ext.page.getByRole('heading', { name: 'Atualizações' }).first()).toBeVisible();
+    await expect(ext.page.getByRole('link', { name: 'Comunicados' })).toHaveCount(0);
+    await expect(ext.page.getByRole('link', { name: /Gerenciar integração/ })).toHaveCount(0);
+    await ext.page.goto('/comunicados');
+    await expect(ext.page.getByText('Acesso não autorizado')).toBeVisible();
+    await ext.context.close();
+
+    const int = await newSession(browser, { email: 'interno@teste.com', password: 'Teste@12345' });
+    await int.page.goto('/comunicados');
+    await expect(int.page.getByRole('link', { name: 'Novo comunicado' })).toBeVisible();
+    await int.page.goto('/interno/atualizacoes');
+    await expect(int.page.getByRole('heading', { name: 'Atualizações (Jira)' })).toBeVisible();
+    await int.context.close();
   });
 });

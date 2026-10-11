@@ -6,7 +6,7 @@ import { errorMessage } from '../lib/api';
 import { Alert, Button, Field } from '../components/ui';
 
 export function LoginPage() {
-  const { login, user } = useAuth();
+  const { login, user, config } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -50,6 +50,27 @@ export function LoginPage() {
             <LogIn size={16} aria-hidden /> Entrar
           </Button>
         </form>
+        {!!config?.testAccounts?.length && (
+          <div className="alert alert-info" style={{ marginTop: 16 }} data-testid="test-accounts">
+            <strong>Contas de teste</strong>
+            <p className="tiny" style={{ margin: '4px 0 8px' }}>Ambiente de testes — desative em produção.</p>
+            <div className="stack" style={{ gap: 6 }}>
+              {config.testAccounts.map((a) => (
+                <button
+                  key={a.email}
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    setEmail(a.email);
+                    setPassword(a.password);
+                  }}
+                >
+                  {a.label}: {a.email}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

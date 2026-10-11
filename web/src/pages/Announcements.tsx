@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Eye, EyeOff, Megaphone, Plus, Save } from 'lucide-react';
-import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_CATEGORY_LABELS, VISIBILITY_LABELS, type AnnouncementCategory } from '@shared/domain';
+import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_CATEGORY_LABELS, type AnnouncementCategory } from '@shared/domain';
 import { errorMessage, fieldErrors, get, post, put, qs } from '../lib/api';
 import { formatDate, formatDateTime } from '../lib/format';
 import type { Taxonomy } from '../lib/types';
@@ -10,18 +10,17 @@ import { useAuth } from '../context/AuthContext';
 import { PageHeader } from '../components/Layout';
 import { RichContent } from '../components/content/RichContent';
 import { RichEditor } from '../components/editor/RichEditor';
-import { Alert, Button, Empty, Field, Pagination, Spinner, StatusBadge, VisibilityBadge, useToast } from '../components/ui';
+import { Alert, Button, Empty, Field, Pagination, Spinner, StatusBadge, useToast } from '../components/ui';
 
 interface AnnouncementItem {
   id: string;
   title: string;
   category: AnnouncementCategory;
-  visibility: string;
   status: string;
   publishedAt: string | null;
   createdAt: string;
   excerpt: string;
-  system: string | null;
+  systems: string[];
   author: string;
 }
 interface Announcement {
@@ -29,8 +28,7 @@ interface Announcement {
   title: string;
   contentHtml: string;
   category: AnnouncementCategory;
-  system: { id: string; name: string } | null;
-  visibility: 'internal' | 'external';
+  systems: Array<{ id: string; name: string }>;
   status: 'draft' | 'published';
   author: string;
   publishedAt: string | null;
@@ -98,9 +96,8 @@ function AnnouncementList({ manage }: { manage: boolean }) {
               </h3>
               <div className="result-meta">
                 <span className="badge badge-info">{ANNOUNCEMENT_CATEGORY_LABELS[n.category]}</span>
-                {n.system && <span className="badge">{n.system}</span>}
+                {n.systems.map((s) => <span key={s} className="badge">{s}</span>)}
                 {manage && <StatusBadge status={n.status === 'published' ? 'published' : 'draft'} />}
-                {manage && <VisibilityBadge visibility={n.visibility} />}
                 <span>{n.publishedAt ? formatDate(n.publishedAt) : `Criado em ${formatDate(n.createdAt)}`}</span>
               </div>
               <p className="snippet">{n.excerpt}</p>
@@ -114,9 +111,21 @@ function AnnouncementList({ manage }: { manage: boolean }) {
 }
 
 export function AnnouncementsPage() {
+  const { can } = useAuth();
   return (
     <div className="page">
-      <PageHeader title="Atualizações e comunicados" subtitle="Novidades, alterações de funcionalidades e manutenções." icon={<Megaphone size={24} aria-hidden />} />
+      <PageHeader
+        title="Comunicados"
+        subtitle="Avisos internos vinculados às plataformas do sistema."
+        icon={<Megaphone size={24} aria-hidden />}
+        actions={
+          can('announcements.manage') ? (
+            <Link className="btn btn-primary" to="/interno/comunicados/novo">
+              <Plus size={16} aria-hidden /> Novo comunicado
+            </Link>
+          ) : undefined
+        }
+      />
       <AnnouncementList manage={false} />
     </div>
   );
@@ -140,7 +149,7 @@ export function AnnouncementViewPage() {
       <h1 style={{ marginTop: 8 }}>{data.title}</h1>
       <div className="result-meta" style={{ marginBottom: 16 }}>
         <span className="badge badge-info">{ANNOUNCEMENT_CATEGORY_LABELS[data.category]}</span>
-        {data.system && <span className="badge">{data.system.name}</span>}
+        {data.systems.map((s) => <span key={s.id} className="badge">{s.name}</span>)}
         <span>
           Publicado em {formatDateTime(data.publishedAt)} por {data.author}
         </span>
@@ -186,7 +195,7 @@ export function AnnouncementEditorPage() {
   const queryClient = useQueryClient();
   const taxonomy = useQuery({ queryKey: ['taxonomy'], queryFn: () => get<Taxonomy>('/api/taxonomy') });
   const existing = useQuery({ queryKey: ['announcement', id], queryFn: () => get<{ announcement: Announcement }>(`/api/announcements/${id}`).then((r) => r.announcement), enabled: !!id });
-  const [form, setForm] = useState<null | { title: string; contentHtml: string; category: AnnouncementCategory; systemId: string; visibility: '' | 'internal' | 'external'; relatedArticleIds: string[] }>(null);
+  const [form, setForm] = useState<null | { title: string; contentHtml: string; category: AnnouncementCategory; systemIds: string[]; relatedArticleIds: string[] }>(null);
   const [articleQ, setArticleQ] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -203,8 +212,8 @@ export function AnnouncementEditorPage() {
   const current =
     form ??
     (a
-      ? { title: a.title, contentHtml: a.contentHtml, category: a.category, systemId: a.system?.id ?? '', visibility: a.visibility, relatedArticleIds: a.relatedArticles.map((r) => r.id) }
-      : { title: '', contentHtml: '', category: 'novidade' as AnnouncementCategory, systemId: '', visibility: '' as const, relatedArticleIds: [] });
+      ? { title: a.title, contentHtml: a.contentHtml, category: a.category, systemIds: a.systems.map((x) => x.id), relatedArticleIds: a.relatedArticles.map((r) => r.id) }
+      : { title: '', contentHtml: '', category: 'novidade' as AnnouncementCategory, systemIds: [] as string[], relatedArticleIds: [] });
   const titles: Record<string, string> = { ...Object.fromEntries((a?.relatedArticles ?? []).map((r) => [r.id, r.title])), ...relatedTitles };
   const update = (patch: Partial<typeof current>) => setForm({ ...current, ...patch });
 
@@ -213,7 +222,7 @@ export function AnnouncementEditorPage() {
     setError(null);
     setErrors({});
     try {
-      const body = { ...current, systemId: current.systemId || null, visibility: current.visibility || undefined };
+      const body = { ...current };
       const res = id ? await put<{ announcement: Announcement }>(`/api/announcements/${id}`, body) : await post<{ announcement: Announcement }>('/api/announcements', body);
       if (publish !== undefined) await post(`/api/announcements/${res.announcement.id}/${publish ? 'publish' : 'unpublish'}`);
       await queryClient.invalidateQueries({ queryKey: ['announcements'] });
@@ -249,15 +258,6 @@ export function AnnouncementEditorPage() {
           <Field label="Título" htmlFor="ae-title" required error={errors.title}>
             <input id="ae-title" className="input" value={current.title} onChange={(e) => update({ title: e.target.value })} />
           </Field>
-          <Field label="Visibilidade" required error={errors.visibility}>
-            <div className="segmented" role="group" aria-label="Visibilidade">
-              {(['internal', 'external'] as const).map((v) => (
-                <button key={v} type="button" aria-pressed={current.visibility === v} onClick={() => update({ visibility: v })}>
-                  {VISIBILITY_LABELS[v]}
-                </button>
-              ))}
-            </div>
-          </Field>
           <Field label="Categoria" htmlFor="ae-cat" required>
             <select id="ae-cat" className="select" value={current.category} onChange={(e) => update({ category: e.target.value as AnnouncementCategory })}>
               {ANNOUNCEMENT_CATEGORIES.map((c) => (
@@ -267,19 +267,23 @@ export function AnnouncementEditorPage() {
               ))}
             </select>
           </Field>
-          <Field label="Sistema relacionado" htmlFor="ae-sys">
-            <select id="ae-sys" className="select" value={current.systemId} onChange={(e) => update({ systemId: e.target.value })}>
-              <option value="">—</option>
-              {taxonomy.data?.systems.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </Field>
         </div>
+        <Field label="Plataformas vinculadas" required error={errors.systemIds}>
+          <div className="row" style={{ gap: 12, flexWrap: 'wrap' }} role="group" aria-label="Plataformas vinculadas">
+            {taxonomy.data?.systems.map((s) => (
+              <label key={s.id} className="row" style={{ gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={current.systemIds.includes(s.id)}
+                  onChange={(e) => update({ systemIds: e.target.checked ? [...current.systemIds, s.id] : current.systemIds.filter((x) => x !== s.id) })}
+                />
+                {s.name}
+              </label>
+            ))}
+          </div>
+        </Field>
         <div>
-          <span className="label">Descrição (imagens e vídeos opcionais)</span>
+          <span className="label">Aviso (imagens e vídeos opcionais)</span>
           <div style={{ marginTop: 6 }}>
             <RichEditor key={a?.id ?? 'new'} initialHtml={current.contentHtml} onChange={(html) => update({ contentHtml: html })} placeholder="Descreva a atualização ou comunicado…" />
           </div>

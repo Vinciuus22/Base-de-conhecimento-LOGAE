@@ -5,6 +5,7 @@ import { htmlToText, slugify } from '../lib/text.js';
 import { reindexArticle } from '../modules/articles/indexing.js';
 import { queryOne, withTransaction } from './pool.js';
 import { syncRbac } from './rbac.js';
+import { TEST_ACCOUNTS } from './test-accounts.js';
 
 async function ensureUser(
   client: pg.PoolClient,
@@ -94,6 +95,8 @@ export interface SeedOptions {
   adminPassword: string;
   demo: boolean;
   demoPassword?: string;
+  /** Cria interno@teste.com e externo@teste.com (senha em test-accounts.ts). */
+  testUsers?: boolean;
 }
 
 export async function seed(opts: SeedOptions): Promise<void> {
@@ -106,6 +109,13 @@ export async function seed(opts: SeedOptions): Promise<void> {
       userType: 'internal',
       roles: ['admin'],
     });
+    if (opts.testUsers) {
+      const testCompany =
+        (await queryOne<{ id: string }>(`SELECT id FROM companies WHERE lower(name) = lower('Empresa de Teste')`, [], client))?.id ??
+        (await queryOne<{ id: string }>(`INSERT INTO companies (name) VALUES ('Empresa de Teste') RETURNING id`, [], client))!.id;
+      await ensureUser(client, { name: 'Usuário Interno de Teste', email: TEST_ACCOUNTS[0].email, password: TEST_ACCOUNTS[0].password, userType: 'internal', roles: ['admin'] });
+      await ensureUser(client, { name: 'Usuário Externo de Teste', email: TEST_ACCOUNTS[1].email, password: TEST_ACCOUNTS[1].password, userType: 'external', companyId: testCompany, roles: ['external'] });
+    }
     if (!opts.demo) return;
 
     const pw = opts.demoPassword ?? 'Demo12345!';
@@ -198,17 +208,34 @@ export async function seed(opts: SeedOptions): Promise<void> {
     });
 
     if (!(await queryOne(`SELECT 1 FROM announcements LIMIT 1`, [], client))) {
-      await client.query(
-        `INSERT INTO announcements (title, content_html, content_text, category, system_id, visibility, status, author_id, published_at)
-         VALUES ($1, $2, $3, 'manutencao', $4, 'external', 'published', $5, now())`,
+      const ann = await queryOne<{ id: string }>(
+        `INSERT INTO announcements (title, content_html, content_text, category, visibility, status, author_id, published_at)
+         VALUES ($1, $2, $3, 'manutencao', 'internal', 'published', $4, now()) RETURNING id`,
         [
           'Manutenção programada do ERP LOGAE',
-          '<p>O ERP ficará indisponível no próximo domingo, das 02h às 04h, para atualização de infraestrutura.</p>',
-          'O ERP ficará indisponível no próximo domingo, das 02h às 04h, para atualização de infraestrutura.',
-          sysErp,
+          '<p>O ERP ficará indisponível no próximo domingo, das 02h às 04h, para atualização de infraestrutura. Avise os clientes que abrirem chamados.</p>',
+          'O ERP ficará indisponível no próximo domingo, das 02h às 04h, para atualização de infraestrutura. Avise os clientes que abrirem chamados.',
           adminId,
         ],
+        client,
       );
+      await client.query(`INSERT INTO announcement_systems (announcement_id, system_id) VALUES ($1, $2), ($1, $3) ON CONFLICT DO NOTHING`, [ann!.id, sysErp, sysPortal]);
+    }
+
+    // Atualizações de exemplo (normalmente criadas pela integração com o Jira).
+    if (!(await queryOne(`SELECT 1 FROM updates LIMIT 1`, [], client))) {
+      const samples: Array<[string, string, string, string, 'internal' | 'external', string, string]> = [
+        ['LOGAE-101', 'Exportação de relatórios em XLSX com filtros salvos', 'Agora é possível salvar filtros e exportar relatórios diretamente em XLSX.', 'v2026.10.1', 'external', 'Externo', sysErp],
+        ['LOGAE-102', 'Novo layout do Portal do Cliente', 'Interface renovada com navegação simplificada e melhor desempenho em celulares.', 'v2026.10.1', 'external', 'Ambos', sysPortal],
+        ['LOGAE-103', 'Ajuste interno no reprocessamento de NF-e', 'Correção no serviço de reprocessamento. Impacta somente a equipe de suporte.', 'v2026.10.1', 'internal', 'Interno', sysErp],
+      ];
+      for (const [key, title, desc, release, vis, aud, sys] of samples) {
+        await client.query(
+          `INSERT INTO updates (jira_key, jira_url, title, description_text, release, audience_raw, visibility, system_id, jira_status, completed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Concluído', now() - interval '1 day')`,
+          [key, `https://exemplo.atlassian.net/browse/${key}`, title, desc, release, aud, vis, sys],
+        );
+      }
     }
   });
 }

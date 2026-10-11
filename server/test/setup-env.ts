@@ -16,3 +16,12 @@ process.env.RATE_LIMIT_TICKETS_PER_HOUR = '10000';
 process.env.LOCK_TTL_SECONDS = '120';
 process.env.SERVE_WEB = 'false';
 process.env.PUBLIC_BASE_URL = 'http://localhost:5173';
+
+// Integração com o Jira (testes usam um segredo e campos fictícios)
+process.env.JIRA_WEBHOOK_SECRET = 'segredo-de-teste-do-jira';
+process.env.JIRA_BASE_URL = 'https://exemplo.atlassian.net';
+process.env.JIRA_EMAIL = 'jira@teste.com';
+process.env.JIRA_API_TOKEN = 'token-de-teste';
+process.env.JIRA_RELEASE_FIELD = 'customfield_10050';
+process.env.JIRA_AUDIENCE_FIELD = 'Público alvo';
+process.env.TEST_LOGINS_ENABLED = 'true';
