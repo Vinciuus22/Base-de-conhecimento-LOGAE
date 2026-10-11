@@ -229,6 +229,11 @@ describe('20.7/13 Meus tickets e atendimento', () => {
     expect((await s2.request('POST', `/api/support/tickets/${t.id}/assign`, { assigneeId: s2.userId })).statusCode).toBe(404);
     expect((await manager.request('POST', `/api/support/tickets/${t.id}/assign`, { assigneeId: s2.userId })).statusCode).toBe(200);
     expect((await s2.request('GET', `/api/tickets/${t.id}`)).statusCode).toBe(200);
+    // A administração lista todos os tickets, com e sem filtros.
+    const all = await manager.request('GET', '/api/support/tickets?pageSize=100&status=');
+    expect(all.statusCode).toBe(200);
+    expect(all.json().items.map((i: { id: string }) => i.id)).toContain(t.id);
+    expect((await manager.request('GET', `/api/support/tickets?q=${t.protocol}&assignee=none`)).statusCode).toBe(200);
     const events = await query(`SELECT * FROM ticket_events WHERE ticket_id = $1 AND type = 'assignment'`, [t.id]);
     expect(events).toHaveLength(2);
   });

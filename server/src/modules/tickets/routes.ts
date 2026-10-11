@@ -279,7 +279,7 @@ export default async function ticketRoutes(app: FastifyInstance): Promise<void> 
     const q = parse(
       z.object({
         q: z.string().max(150).optional(),
-        status: z.enum([...TICKET_STATUSES, 'active'] as [string, ...string[]]).optional(),
+        status: z.preprocess((v) => (v === '' ? undefined : v), z.enum([...TICKET_STATUSES, 'active'] as [string, ...string[]]).optional()),
         priority: z.enum(TICKET_PRIORITIES).optional(),
         category: z.string().uuid().optional(),
         system: z.string().uuid().optional(),
@@ -292,7 +292,8 @@ export default async function ticketRoutes(app: FastifyInstance): Promise<void> 
       req.query,
     );
     const values: unknown[] = [user.id];
-    const where: string[] = [];
+    // $1 (usuário atual) é sempre referenciado para que o tipo do parâmetro seja conhecido.
+    const where: string[] = ['$1::uuid IS NOT NULL'];
     // Escopo autorizado: administração vê todos; suporte vê sem responsável ou atribuídos a si.
     if (!user.permissions.has('tickets.manage')) where.push('(t.assignee_id IS NULL OR t.assignee_id = $1)');
     const add = (sql: string, v: unknown) => {
@@ -319,7 +320,7 @@ export default async function ticketRoutes(app: FastifyInstance): Promise<void> 
     if (range.to) add('t.created_at <= ?', range.to);
     values.push(q.pageSize, (q.page - 1) * q.pageSize);
     const rows = await query(
-      `${SUMMARY_SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      `${SUMMARY_SELECT} WHERE ${where.join(' AND ')}
         ORDER BY ${SORTS[q.sort]} LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values,
     );

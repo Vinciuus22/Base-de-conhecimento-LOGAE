@@ -91,7 +91,11 @@ export async function answerQuestion(
   // Para perguntas de continuação, considera também a pergunta anterior do usuário.
   const previousUser = [...history].reverse().find((h) => h.role === 'user')?.content ?? '';
   let chunks = await retrieveChunks(user, question, config().AI_MAX_SOURCES);
-  if (!chunks.length && previousUser) chunks = await retrieveChunks(user, `${previousUser} ${question}`, config().AI_MAX_SOURCES);
+  // Somente perguntas curtas ("e no módulo fiscal?") são tratadas como continuação da anterior.
+  const isFollowUp = question.trim().split(/\s+/).length <= 5;
+  if (!chunks.length && previousUser && isFollowUp) {
+    chunks = await retrieveChunks(user, `${previousUser} ${question}`, config().AI_MAX_SOURCES);
+  }
 
   if (!chunks.length) {
     return { text: AI_NO_ANSWER_MESSAGE, steps: [], foundSolution: false, mode: 'no_results', sources: [] };

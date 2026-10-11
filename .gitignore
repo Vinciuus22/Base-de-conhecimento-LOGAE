@@ -8,3 +8,5 @@ coverage/
 test-results/
 playwright-report/
 .DS_Store
+web/test-results/
+web/playwright-report/

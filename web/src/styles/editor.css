@@ -1,0 +1,208 @@
+/* Editor de artigos */
+.editor {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.editor-toolbar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 6px;
+  margin-right: 2px;
+  border-right: 1px solid var(--border);
+}
+.tb-group:last-of-type {
+  border-right: 0;
+}
+.tb-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+}
+.tb-btn:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.tb-btn[aria-pressed='true'] {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: #bfd2fb;
+}
+.tb-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.tb-select {
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0 6px;
+  max-width: 140px;
+}
+.tb-menu {
+  position: relative;
+}
+.tb-popover {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  z-index: 30;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  min-width: 180px;
+}
+.tb-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 24px);
+  gap: 6px;
+}
+.tb-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+.tb-callout-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-align: left;
+}
+.tb-callout-item.callout-atencao {
+  background: #fff8e6;
+  border-color: #f0c35a;
+  color: #9a6200;
+}
+.tb-callout-item.callout-alerta {
+  background: #fff0f0;
+  border-color: #ef8a8a;
+  color: #b91c1c;
+}
+.tb-callout-item.callout-importante {
+  background: #f5efff;
+  border-color: #b694f5;
+  color: #6d28d9;
+}
+.tb-callout-item.callout-dica {
+  background: #edfaf2;
+  border-color: #7fcf9c;
+  color: #15803d;
+}
+.tb-callout-item.callout-info {
+  background: #eef4ff;
+  border-color: #8fb1f5;
+  color: #1d4ed8;
+}
+.editor-surface {
+  min-height: 420px;
+  padding: 20px 24px;
+  outline: none;
+}
+.editor-surface p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-faint);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.editor-surface .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(37, 99, 235, 0.12);
+  pointer-events: none;
+}
+.editor-surface td,
+.editor-surface th {
+  position: relative;
+}
+.editor-surface .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--primary);
+  pointer-events: none;
+}
+.editor-surface.resize-cursor {
+  cursor: col-resize;
+}
+.editor-surface .tableWrapper {
+  overflow-x: auto;
+}
+.editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+.editor-side {
+  position: sticky;
+  top: calc(var(--header-h) + 12px);
+}
+.editing-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--success-soft);
+  color: #14532d;
+  border: 1px solid #a8dcb9;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+}
+.save-state {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+@media (max-width: 1024px) {
+  .editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor-side {
+    position: static;
+  }
+}
+@media (max-width: 720px) {
+  .editor-surface {
+    padding: 14px;
+  }
+}
