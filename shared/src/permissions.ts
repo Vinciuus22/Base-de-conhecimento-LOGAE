@@ -17,6 +17,16 @@ export const PERMISSIONS = {
   CATEGORIES_MANAGE: 'categories.manage',
   ANNOUNCEMENTS_MANAGE: 'announcements.manage',
   UPDATES_MANAGE: 'updates.manage',
+  INTEGRATIONS_VIEW: 'integrations.view',
+  INTEGRATIONS_CREATE: 'integrations.create',
+  INTEGRATIONS_EDIT: 'integrations.edit',
+  INTEGRATIONS_LOG: 'integrations.log',
+  INTEGRATIONS_STATUS: 'integrations.status',
+  INTEGRATIONS_FINISH: 'integrations.finish',
+  INTEGRATIONS_REOPEN: 'integrations.reopen',
+  INTEGRATIONS_HISTORY: 'integrations.history',
+  INTEGRATIONS_ARCHIVE: 'integrations.archive',
+  INTEGRATIONS_ADMIN: 'integrations.admin',
   CARDS_VIEW: 'cards.view',
   CARDS_SYNC: 'cards.sync',
   USERS_MANAGE: 'users.manage',
@@ -36,7 +46,7 @@ export interface PermissionDefinition {
   description: string;
   /** Quando verdadeiro, a permissão nunca tem efeito para usuários externos. */
   internalOnly: boolean;
-  group: 'Artigos' | 'Conteúdo' | 'Administração' | 'Tickets';
+  group: 'Artigos' | 'Conteúdo' | 'Administração' | 'Tickets' | 'Integração de Clientes';
 }
 
 export const PERMISSION_DEFINITIONS: PermissionDefinition[] = [
@@ -53,6 +63,16 @@ export const PERMISSION_DEFINITIONS: PermissionDefinition[] = [
   { key: 'updates.manage', label: 'Gerenciar atualizações', description: 'Ocultar/exibir atualizações vindas do Jira, ajustar o público e sincronizar com o Jira.', internalOnly: true, group: 'Conteúdo' },
   { key: 'cards.view', label: 'Consultar atualizações dos cards', description: 'Consultar os cards do Jira monitorados e o histórico de alterações (somente leitura).', internalOnly: true, group: 'Conteúdo' },
   { key: 'cards.sync', label: 'Sincronizar cards do Jira', description: 'Solicitar a sincronização manual dos cards com o Jira.', internalOnly: true, group: 'Conteúdo' },
+  { key: 'integrations.view', label: 'Consultar integrações', description: 'Consultar os cards de integração de clientes e as atividades.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.create', label: 'Criar integrações', description: 'Cadastrar novos cards de integração.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.edit', label: 'Editar integrações', description: 'Alterar os dados cadastrais dos cards.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.log', label: 'Registrar atividades', description: 'Adicionar registros ao histórico do acompanhamento.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.status', label: 'Alterar status', description: 'Alterar o status entre Início e Acompanhamento.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.finish', label: 'Finalizar integrações', description: 'Finalizar integrações e editar dados de finalização.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.reopen', label: 'Reabrir integrações', description: 'Reabrir integrações finalizadas.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.history', label: 'Consultar histórico de alterações', description: 'Consultar o histórico de alterações cadastrais.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.archive', label: 'Arquivar integrações', description: 'Arquivar e restaurar cards de integração.', internalOnly: true, group: 'Integração de Clientes' },
+  { key: 'integrations.admin', label: 'Administrar integrações', description: 'Gerenciar tipos de atividade e corrigir/remover atividades de outros usuários.', internalOnly: true, group: 'Integração de Clientes' },
   { key: 'documents.manage', label: 'Gerenciar documentos', description: 'Importar, aprovar, reprocessar e remover documentos.', internalOnly: true, group: 'Conteúdo' },
   { key: 'users.manage', label: 'Gerenciar usuários', description: 'Gerenciar usuários, empresas, perfis e permissões.', internalOnly: true, group: 'Administração' },
   { key: 'audit.view', label: 'Consultar auditoria', description: 'Consultar os registros de auditoria.', internalOnly: true, group: 'Administração' },
@@ -68,7 +88,7 @@ export function isPermissionKey(value: string): value is PermissionKey {
   return (ALL_PERMISSION_KEYS as string[]).includes(value);
 }
 
-export const ROLE_KEYS = ['admin', 'editor', 'author', 'support', 'internal_reader', 'external'] as const;
+export const ROLE_KEYS = ['admin', 'editor', 'author', 'support', 'integrations', 'internal_reader', 'external'] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
 
 export interface RoleDefinition {
@@ -107,6 +127,13 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
     description: 'Atende tickets, responde clientes e registra soluções.',
     userType: 'internal',
     permissions: ['articles.view_internal', 'tickets.support', 'cards.view'],
+  },
+  {
+    key: 'integrations',
+    name: 'Integração de clientes',
+    description: 'Acompanha integrações de clientes: cria, edita, registra atividades, altera status e finaliza.',
+    userType: 'internal',
+    permissions: ['articles.view_internal', 'integrations.view', 'integrations.create', 'integrations.edit', 'integrations.log', 'integrations.status', 'integrations.finish', 'integrations.history'],
   },
   {
     key: 'internal_reader',

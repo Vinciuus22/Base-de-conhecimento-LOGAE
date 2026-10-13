@@ -99,3 +99,4 @@ docs/           Documentação técnica
 - **Comunicados** (`/comunicados`): área separada, só para usuários internos; quem tem `announcements.manage` cadastra avisos com imagens e vídeos e os vincula a uma ou mais plataformas.
 - **Contas de teste** (apenas desenvolvimento): `interno@teste.com` e `externo@teste.com`, senha `Teste@12345` (`SEED_TEST_USERS=true` + `TEST_LOGINS_ENABLED=true`).
 - **Atualizações dos Cards** (`/interno/cards`): painel interno somente de consulta com os cards do Jira (CHL e RISK1) e o histórico de alterações. Veja `docs/ATUALIZACOES_DOS_CARDS.md`.
+- **Integração de Clientes** (`/interno/integracoes`): acompanhamento dos processos de integração com atividades, status, finalização/reabertura e histórico imutável de alterações. Veja `docs/INTEGRACAO_DE_CLIENTES.md`.

@@ -1396,3 +1396,8 @@ button.chip.chip-active {
   color: #fff;
 }
 dl.grid dd { margin: 2px 0 0; }
+
+/* Integração de Clientes */
+.stat-tile { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border, #d0d5dd); background: var(--surface, #fff); }
+.stat-tile.stat-active { outline: 2px solid var(--primary); }
+.text-danger { color: var(--danger, #b42318); font-weight: 600; }

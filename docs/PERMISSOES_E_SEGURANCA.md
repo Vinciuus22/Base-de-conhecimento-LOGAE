@@ -21,6 +21,16 @@ usuário interno não acessa nada além do conteúdo público.
 | `articles.history` | Consultar histórico e versões | Sim |
 | `categories.manage` | Categorias, sistemas, tags e sinônimos | Sim |
 | `announcements.manage` | Cadastrar e publicar comunicados (exclusivos de usuários internos, vinculados a plataformas) | Sim |
+| `integrations.view` | Consultar integrações de clientes | Sim |
+| `integrations.create` | Criar integrações | Sim |
+| `integrations.edit` | Editar integrações | Sim |
+| `integrations.log` | Registrar atividades de acompanhamento | Sim |
+| `integrations.status` | Alterar status (Início/Acompanhamento) | Sim |
+| `integrations.finish` | Finalizar integrações | Sim |
+| `integrations.reopen` | Reabrir integrações | Sim |
+| `integrations.history` | Consultar histórico de alterações | Sim |
+| `integrations.archive` | Arquivar/restaurar integrações | Sim |
+| `integrations.admin` | Tipos de atividade; corrigir/remover atividades | Sim |
 | `cards.view` | Consultar Atualizações dos Cards (Jira, somente leitura) | Sim |
 | `cards.sync` | Solicitar sincronização manual dos cards | Sim |
 | `updates.manage` | Ocultar/exibir atualizações vindas do Jira e ajustar o público alvo | Sim |

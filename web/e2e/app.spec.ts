@@ -207,4 +207,73 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     expect((await ext.page.request.get('/api/cards')).status()).toBe(403);
     await ext.context.close();
   });
+
+  test('integração de clientes: criar, acompanhar, alterar com histórico, finalizar e reabrir @integracoes', async ({ browser }) => {
+    const { context, page } = await newSession(browser, { email: 'interno@teste.com', password: 'Teste@12345' });
+    const objective = uid('Integrar ERP ao TMS');
+    await page.goto('/interno/integracoes');
+    await page.getByRole('link', { name: 'Nova integração' }).click();
+    await page.getByRole('button', { name: 'Cadastrar integração' }).click();
+    await expect(page.getByText('Selecione a empresa.')).toBeVisible();
+    await expect(page.getByText('Informe o objetivo.')).toBeVisible();
+    await page.getByLabel('Empresa', { exact: true }).selectOption({ index: 1 });
+    await page.getByLabel('TMS', { exact: true }).selectOption({ index: 1 });
+    await page.getByLabel('CS/GC da conta').selectOption({ index: 1 });
+    await page.getByLabel('Objetivo', { exact: true }).fill(objective);
+    await page.getByLabel('Descrição', { exact: true }).fill('Contexto inicial\n\n- levantar requisitos\n- configurar acesso');
+    await page.getByRole('button', { name: 'Cadastrar integração' }).click();
+    await expect(page.getByTestId('integration-summary')).toContainText(objective);
+    await expect(page.getByTestId('integration-summary')).toContainText('Início');
+
+    // atividade
+    await page.getByLabel('Tipo de atividade').selectOption({ label: 'Reunião' });
+    await page.getByLabel('Descrição da atividade').fill('Reunião inicial com o cliente');
+    await page.getByRole('button', { name: 'Registrar atividade' }).click();
+    await expect(page.getByTestId('activity-item').first()).toContainText('Reunião inicial com o cliente');
+
+    // alterar: cancelar descarta; salvar persiste e audita
+    await page.getByRole('button', { name: 'Alterar' }).click();
+    await page.getByLabel('Observações gerais').fill('rascunho descartado');
+    await page.getByRole('button', { name: 'Cancelar' }).first().click();
+    await page.getByRole('button', { name: 'Descartar' }).click();
+    await expect(page.getByText('rascunho descartado')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Alterar' }).click();
+    await page.getByLabel('Status', { exact: true }).selectOption('acompanhamento');
+    await page.getByLabel('Descrição da ação').fill('Validar testes');
+    await page.getByRole('button', { name: 'Salvar alterações' }).click();
+    await expect(page.getByTestId('integration-summary')).toContainText('Acompanhamento');
+    const status = page.getByTestId('change-row').filter({ hasText: 'Mudança de status' });
+    await expect(status).toContainText('Início');
+    await expect(status).toContainText('Acompanhamento');
+    await expect(status).toContainText('Usuário Interno');
+
+    // finalizar e reabrir
+    await page.getByRole('button', { name: 'Finalizar' }).click();
+    await page.getByLabel('Resumo do resultado').fill('Integração concluída com sucesso');
+    await page.getByRole('button', { name: 'Finalizar integração' }).click();
+    await expect(page.getByText('Confirme a finalização.')).toBeVisible();
+    await page.getByLabel(/Confirmo a finalização/).check();
+    await page.getByRole('button', { name: 'Finalizar integração' }).click();
+    await expect(page.getByTestId('integration-summary')).toContainText('Finalizado');
+    await page.getByRole('button', { name: 'Reabrir' }).click();
+    await page.getByLabel('Motivo da reabertura').fill('Cliente pediu novo ajuste');
+    await page.getByRole('button', { name: 'Reabrir' }).last().click();
+    await expect(page.getByTestId('integration-summary')).toContainText('Acompanhamento');
+    await expect(page.getByTestId('activity-item')).toHaveCount(1); // histórico preservado
+    await expect(page.getByTestId('change-row').filter({ hasText: 'Reabertura' }).first()).toBeVisible();
+
+    // listagem: pesquisa e indicadores
+    await page.goto('/interno/integracoes');
+    await page.getByLabel('Pesquisar').fill(objective);
+    await expect(page.getByTestId('integration-card')).toHaveCount(1);
+    await expect(page.getByTestId('integration-stats')).toContainText('Acompanhamento');
+    await context.close();
+
+    // externo não acessa
+    const ext = await newSession(browser, { email: 'externo@teste.com', password: 'Teste@12345' });
+    await ext.page.goto('/interno/integracoes');
+    await expect(ext.page.getByText('Acesso não autorizado')).toBeVisible();
+    expect((await ext.page.request.get('/api/integrations')).status()).toBe(403);
+    await ext.context.close();
+  });
 });
