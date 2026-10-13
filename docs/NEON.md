@@ -14,7 +14,11 @@ Pela Vercel: projeto → **Storage → Create Database → Neon** (ou Marketplac
 | `PUBLIC_BASE_URL` | endereço público do frontend |
 | `PUBLIC_ANONYMOUS_ACCESS` | `false` (login obrigatório) |
 
-## 3. Criar as tabelas e os usuários (uma vez, da sua máquina)
+## 3. Criar tabelas e usuários
+
+**Opção A — só pelo navegador (sem terminal):** no Neon, abra **SQL Editor**, cole todo o conteúdo de `docs/neon-setup.sql` e clique em Run (desmarque "Read-only"). Cria todas as tabelas, perfis e os usuários de teste (`interno@teste.com`, `externo@teste.com`, `admin@exemplo.com` / `Admin12345!`).
+
+**Opção B — pelo terminal** (os comandos abaixo NÃO funcionam no SQL Editor):
 Use a URL **direta** (`DATABASE_URL_UNPOOLED`) para as migrações:
 ```
 export DATABASE_URL='postgres://...neon.tech/neondb?sslmode=require'
