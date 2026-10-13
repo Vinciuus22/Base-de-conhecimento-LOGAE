@@ -1,0 +1,41 @@
+name: Preparar banco Neon
+
+# Cria as tabelas e os usuários de teste no banco apontado pelo secret NEON_DATABASE_URL.
+# Seguro para repetir: migrações já aplicadas são ignoradas e contas existentes não são duplicadas.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/focused-babbage-jslaxx]
+    paths: ['.github/workflows/neon-setup.yml']
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conferir o secret
+        env:
+          URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "::error::Cadastre o secret NEON_DATABASE_URL (Settings > Secrets and variables > Actions) e rode este fluxo de novo."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Criar tabelas
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DATABASE_SSL: 'true'
+        run: npm run migrate -w server
+      - name: Criar usuários de teste
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DATABASE_SSL: 'true'
+          SEED_TEST_USERS: 'true'
+          SEED_ADMIN_EMAIL: admin@exemplo.com
+          SEED_ADMIN_PASSWORD: Admin12345!
+        run: npm run seed -w server

@@ -16,7 +16,7 @@ Pela Vercel: projeto → **Storage → Create Database → Neon** (ou Marketplac
 
 ## 3. Criar tabelas e usuários
 
-**Opção A — só pelo navegador (sem terminal):** no Neon, abra **SQL Editor**, desligue "Read-only" e execute, **um de cada vez e em ordem**, os arquivos de `docs/neon/` (`parte-01` a `parte-06`, cada um com ~12 KB). Cole o conteúdo, clique em Run e espere terminar antes do próximo. Cria as tabelas, os perfis e os usuários de teste (`interno@teste.com`, `externo@teste.com`, `admin@exemplo.com` / `Admin12345!`). Rode cada parte uma única vez.
+**Opção A — sem terminal (GitHub Actions):** no repositório do GitHub, vá em **Settings → Secrets and variables → Actions → New repository secret**, nome `NEON_DATABASE_URL`, valor = a URL de conexão **direta** (sem `-pooler`) do Neon. Depois, em **Actions → Preparar banco Neon**, clique em **Re-run all jobs** (ou **Run workflow**). O fluxo cria as tabelas e os usuários de teste e pode ser repetido sem duplicar nada. (O SQL Editor do Neon aceita um comando por vez, por isso não serve para este script.)
 
 **Opção B — pelo terminal** (os comandos abaixo NÃO funcionam no SQL Editor):
 Use a URL **direta** (`DATABASE_URL_UNPOOLED`) para as migrações:
