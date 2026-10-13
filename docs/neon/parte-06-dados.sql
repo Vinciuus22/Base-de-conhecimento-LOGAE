@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+INSERT INTO public.role_permissions VALUES ('7436084c-548d-4884-a610-d887d52f9651', 'integrations.history');
+INSERT INTO public.role_permissions VALUES ('caf9d0b3-03bd-4f7a-b6be-2304ad282e96', 'articles.view_internal');
+INSERT INTO public.schema_migrations VALUES ('001_initial_schema.sql', '2026-10-13 18:13:32.892714+00');
+INSERT INTO public.schema_migrations VALUES ('002_updates_and_announcements.sql', '2026-10-13 18:13:33.040818+00');
+INSERT INTO public.schema_migrations VALUES ('003_jira_cards.sql', '2026-10-13 18:13:33.054583+00');
+INSERT INTO public.schema_migrations VALUES ('004_customer_integrations.sql', '2026-10-13 18:13:33.075402+00');
+INSERT INTO public.schema_migrations VALUES ('005_public_announcements_and_reads.sql', '2026-10-13 18:13:33.098758+00');
+INSERT INTO public.schema_migrations VALUES ('006_support_documents.sql', '2026-10-13 18:13:33.103329+00');
+INSERT INTO public.schema_migrations VALUES ('007_company_access.sql', '2026-10-13 18:13:33.108829+00');
+INSERT INTO public.user_roles VALUES ('d067ce04-48ba-4125-8a0b-8b822d95346f', 'bb16544d-4e5f-4937-9a2d-dc8744962d65', NULL, '2026-10-13 18:13:34.033913+00');
+INSERT INTO public.user_roles VALUES ('2ab528f7-0599-4639-8698-c99098e0f179', 'bb16544d-4e5f-4937-9a2d-dc8744962d65', NULL, '2026-10-13 18:13:34.033913+00');
+INSERT INTO public.user_roles VALUES ('cde74ca8-52cb-4cf7-848a-e53c55abfe6d', '243bf6db-012f-4d81-8ebd-369c1cc8f047', NULL, '2026-10-13 18:13:34.033913+00');
