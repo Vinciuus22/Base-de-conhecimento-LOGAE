@@ -11,6 +11,7 @@ import { LoginPage } from './pages/Login';
 import { AccountPage } from './pages/Account';
 import { AnnouncementEditorPage, AnnouncementsManagePage, AnnouncementsPage, AnnouncementViewPage } from './pages/Announcements';
 import { UpdatesManagePage, UpdatesPage, UpdateViewPage } from './pages/Updates';
+import { CardDetailPage, CardsPage } from './pages/internal/Cards';
 import { MyTicketsPage } from './pages/tickets/MyTickets';
 import { NewTicketPage } from './pages/tickets/NewTicket';
 import { TicketDetailPage } from './pages/tickets/TicketDetail';
@@ -115,6 +116,8 @@ export const router = createBrowserRouter([
           { path: 'comunicados/novo', element: <RequireInternal any={['announcements.manage']}><AnnouncementEditorPage /></RequireInternal> },
           { path: 'comunicados/:id', element: <RequireInternal any={['announcements.manage']}><AnnouncementEditorPage /></RequireInternal> },
           { path: 'atualizacoes', element: <RequireInternal any={['updates.manage']}><UpdatesManagePage /></RequireInternal> },
+          { path: 'cards', element: <RequireInternal any={['cards.view']}><CardsPage /></RequireInternal> },
+          { path: 'cards/:key', element: <RequireInternal any={['cards.view']}><CardDetailPage /></RequireInternal> },
           { path: 'documentos', element: <RequireInternal any={['documents.manage']}><DocumentsPage /></RequireInternal> },
           { path: 'documentos/:id', element: <RequireInternal any={['documents.manage']}><DocumentDetailPage /></RequireInternal> },
           { path: 'tickets', element: <RequireInternal any={['tickets.support', 'tickets.manage']}><SupportQueuePage /></RequireInternal> },

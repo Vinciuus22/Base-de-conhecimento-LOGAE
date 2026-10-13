@@ -3,6 +3,7 @@ import { query } from './db/pool.js';
 import { purgeExpiredLocks } from './modules/articles/locks.js';
 import { processPendingEmbeddings } from './modules/ai/embeddings.js';
 import { jiraConfigured, syncFromJira } from './modules/updates/jira.js';
+import { syncCards } from './modules/cards/service.js';
 import { resumePendingDocuments } from './modules/documents/service.js';
 
 /** Tarefas periódicas de manutenção (bloqueios expirados, sessões, retenção de dados). */
@@ -40,6 +41,12 @@ export function startJobs(log: (msg: string, err?: unknown) => void): () => void
   const syncMinutes = config().JIRA_SYNC_MINUTES;
   if (syncMinutes > 0 && jiraConfigured()) {
     timers.push(setInterval(safe('jira-sync', () => syncFromJira(syncMinutes * 2)), syncMinutes * 60_000));
+  }
+
+  // Sincronização periódica dos cards (complementa o webhook; incremental e idempotente).
+  const cardMinutes = config().JIRA_CARDS_SYNC_MINUTES;
+  if (cardMinutes > 0 && jiraConfigured()) {
+    timers.push(setInterval(safe('jira-cards', () => syncCards().catch((e) => { if (e?.code !== 'SYNC_RUNNING') throw e; })), cardMinutes * 60_000));
   }
 
   void safe('resume-documents', resumePendingDocuments)();

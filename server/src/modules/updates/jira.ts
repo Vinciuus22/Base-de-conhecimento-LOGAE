@@ -192,13 +192,25 @@ export function jiraConfigured(): boolean {
   return !!(c.JIRA_BASE_URL && c.JIRA_EMAIL && c.JIRA_API_TOKEN);
 }
 
-export type JiraFetch = (url: string, init: { headers: Record<string, string> }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+export type JiraFetch = (
+  url: string,
+  init: { headers: Record<string, string> },
+) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown>; headers?: { get(name: string): string | null } }>;
+
+export class JiraHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly retryAfterSeconds?: number,
+  ) {
+    super(`Jira respondeu HTTP ${status}`);
+  }
+}
 let fetchOverride: JiraFetch | null = null;
 export function setJiraFetch(fn: JiraFetch | null): void {
   fetchOverride = fn;
 }
 
-async function jiraGet(path: string): Promise<unknown> {
+export async function jiraGet(path: string): Promise<unknown> {
   const c = config();
   const url = `${c.JIRA_BASE_URL!.replace(/\/+$/, '')}${path}`;
   const headers = {
@@ -206,7 +218,10 @@ async function jiraGet(path: string): Promise<unknown> {
     Authorization: `Basic ${Buffer.from(`${c.JIRA_EMAIL}:${c.JIRA_API_TOKEN}`).toString('base64')}`,
   };
   const res = await (fetchOverride ?? ((u, i) => fetch(u, { ...i, signal: AbortSignal.timeout(30_000) })))(url, { headers });
-  if (!res.ok) throw new Error(`Jira respondeu HTTP ${res.status}`);
+  if (!res.ok) {
+    const ra = Number(res.headers?.get('retry-after'));
+    throw new JiraHttpError(res.status, Number.isFinite(ra) && ra > 0 ? ra : undefined);
+  }
   return res.json();
 }
 

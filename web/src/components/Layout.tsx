@@ -18,6 +18,7 @@ import {
   Building2,
   Headset,
   Rocket,
+  KanbanSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ChatWidget } from './ChatWidget';
@@ -135,6 +136,11 @@ export function InternalLayout() {
         {can('updates.manage') && (
           <SideLink to="/interno/atualizacoes" icon={<Rocket size={18} aria-hidden />}>
             Atualizações (Jira)
+          </SideLink>
+        )}
+        {can('cards.view') && (
+          <SideLink to="/interno/cards" icon={<KanbanSquare size={18} aria-hidden />}>
+            Atualizações dos Cards
           </SideLink>
         )}
         {can('documents.manage') && (

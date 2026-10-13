@@ -21,6 +21,8 @@ usuário interno não acessa nada além do conteúdo público.
 | `articles.history` | Consultar histórico e versões | Sim |
 | `categories.manage` | Categorias, sistemas, tags e sinônimos | Sim |
 | `announcements.manage` | Cadastrar e publicar comunicados (exclusivos de usuários internos, vinculados a plataformas) | Sim |
+| `cards.view` | Consultar Atualizações dos Cards (Jira, somente leitura) | Sim |
+| `cards.sync` | Solicitar sincronização manual dos cards | Sim |
 | `updates.manage` | Ocultar/exibir atualizações vindas do Jira e ajustar o público alvo | Sim |
 | `documents.manage` | Importar, aprovar, reprocessar e remover documentos | Sim |
 | `users.manage` | Usuários, empresas, perfis e permissões | Sim |

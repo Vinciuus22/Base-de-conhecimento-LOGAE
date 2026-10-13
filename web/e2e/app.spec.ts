@@ -157,4 +157,54 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     await expect(int.page.getByRole('heading', { name: 'Atualizações (Jira)' })).toBeVisible();
     await int.context.close();
   });
+
+  test('atualizações dos cards: interno consulta histórico; externo não acessa @cards', async ({ browser, request }) => {
+    const secret = process.env.E2E_JIRA_SECRET ?? 'dev-secret';
+    const key = `CHL-${Math.floor(Math.random() * 900000) + 100000}`;
+    const issue = {
+      id: String(Math.floor(Math.random() * 1e9)),
+      key,
+      fields: {
+        summary: 'Exportação de relatório com erro',
+        status: { name: 'PRONTO' },
+        assignee: { displayName: 'Ana Responsável', accountId: 'acc-ana' },
+        project: { key: 'CHL', name: 'Chamados' },
+        created: '2026-10-01T10:00:00.000+0000',
+        updated: '2026-10-12T10:00:00.000+0000',
+      },
+    };
+    const res = await request.post('/api/integrations/jira/cards/webhook', {
+      headers: { 'x-jira-secret': secret },
+      data: {
+        webhookEvent: 'jira:issue_updated',
+        timestamp: Date.now(),
+        issue,
+        changelog: { id: String(Date.now()), created: '2026-10-12T10:00:00.000+0000', author: { displayName: 'Carlos Lima', accountId: 'acc-carlos' }, items: [{ field: 'status', fromString: 'Em Desenvolvimento', toString: 'PRONTO' }] },
+      },
+    });
+    test.skip(res.status() === 503, 'Webhook do Jira não configurado neste ambiente');
+    expect(res.ok()).toBeTruthy();
+
+    const int = await newSession(browser, { email: 'interno@teste.com', password: 'Teste@12345' });
+    await int.page.goto('/interno/cards');
+    await int.page.getByLabel('Pesquisar').fill(key);
+    const row = int.page.locator('tr', { hasText: key });
+    await expect(row).toContainText('Exportação de relatório com erro');
+    await expect(row).toContainText('Ana Responsável');
+    await expect(row).toContainText('Carlos Lima');
+    await row.getByRole('link', { name: 'Histórico' }).click();
+    await expect(int.page.getByRole('heading', { name: /Histórico de alterações/ })).toBeVisible();
+    const ev = int.page.getByTestId('card-event').filter({ hasText: 'Mudança de status' });
+    await expect(ev).toContainText('Em Desenvolvimento');
+    await expect(ev).toContainText('PRONTO');
+    await expect(ev).toContainText('Carlos Lima');
+    await expect(int.page.getByRole('button', { name: /Inverter ordenação/ })).toBeVisible();
+    await int.context.close();
+
+    const ext = await newSession(browser, { email: 'externo@teste.com', password: 'Teste@12345' });
+    await ext.page.goto('/interno/cards');
+    await expect(ext.page.getByText('Acesso não autorizado')).toBeVisible();
+    expect((await ext.page.request.get('/api/cards')).status()).toBe(403);
+    await ext.context.close();
+  });
 });

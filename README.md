@@ -98,3 +98,4 @@ docs/           Documentação técnica
 - **Atualizações**: vêm do Jira. Quando uma tarefa é concluída com o campo de release preenchido, ela aparece em `/atualizacoes`. O campo **Público alvo** define quem enxerga (clientes ou só internos). Clientes e visitantes apenas visualizam. Configuração em `docs/VARIAVEIS_DE_AMBIENTE.md`.
 - **Comunicados** (`/comunicados`): área separada, só para usuários internos; quem tem `announcements.manage` cadastra avisos com imagens e vídeos e os vincula a uma ou mais plataformas.
 - **Contas de teste** (apenas desenvolvimento): `interno@teste.com` e `externo@teste.com`, senha `Teste@12345` (`SEED_TEST_USERS=true` + `TEST_LOGINS_ENABLED=true`).
+- **Atualizações dos Cards** (`/interno/cards`): painel interno somente de consulta com os cards do Jira (CHL e RISK1) e o histórico de alterações. Veja `docs/ATUALIZACOES_DOS_CARDS.md`.

@@ -25,3 +25,5 @@ process.env.JIRA_API_TOKEN = 'token-de-teste';
 process.env.JIRA_RELEASE_FIELD = 'customfield_10050';
 process.env.JIRA_AUDIENCE_FIELD = 'Público alvo';
 process.env.TEST_LOGINS_ENABLED = 'true';
+process.env.JIRA_CARD_PROJECTS = 'CHL,RISK1';
+process.env.JIRA_SHARED_ACCOUNTS = 'suporte@empresa.com';

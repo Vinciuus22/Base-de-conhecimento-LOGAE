@@ -1382,3 +1382,17 @@ mark.hl {
     transition: none !important;
   }
 }
+
+/* Filtros de status (Atualizações dos Cards) */
+button.chip {
+  border: 1px solid transparent;
+  padding: 3px 12px;
+  cursor: pointer;
+  background: var(--surface-2, var(--primary-soft));
+  color: inherit;
+}
+button.chip.chip-active {
+  background: var(--primary);
+  color: #fff;
+}
+dl.grid dd { margin: 2px 0 0; }

@@ -79,6 +79,12 @@ const schema = z.object({
   JIRA_AUDIENCE_FIELD: z.string().default('Público alvo'),
   JIRA_DONE_STATUSES: z.string().default('Done,Concluído,Concluida,Concluída,Finalizado,Resolvido'),
   JIRA_SYNC_MINUTES: int(0),
+  /** Atualizações dos Cards: projetos monitorados (chaves separadas por vírgula). */
+  JIRA_CARD_PROJECTS: z.string().default('CHL,RISK1'),
+  /** Minutos entre sincronizações incrementais dos cards (0 = desativado). */
+  JIRA_CARDS_SYNC_MINUTES: int(0),
+  /** Contas compartilhadas (accountId, e-mail ou nome), separadas por vírgula. */
+  JIRA_SHARED_ACCOUNTS: z.string().default(''),
 
   // Contas de teste (NÃO habilitar em produção)
   TEST_LOGINS_ENABLED: bool(false),
