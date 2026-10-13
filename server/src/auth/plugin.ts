@@ -52,6 +52,7 @@ async function authPlugin(app: FastifyInstance): Promise<void> {
       userType: row.user_type,
       companyId: row.company_id,
       companyName: row.company_name,
+      companyIds: [...new Set([...(row.company_id ? [row.company_id] : []), ...row.extra_company_ids])],
       roles,
       permissions: new Set(permissions),
       sessionId: row.session_id,

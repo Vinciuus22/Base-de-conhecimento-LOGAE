@@ -10,6 +10,8 @@ export interface AuthUser {
   userType: UserType;
   companyId: string | null;
   companyName: string | null;
+  /** Empresa principal + empresas extras com acesso concedido. */
+  companyIds: string[];
   roles: string[];
   permissions: Set<PermissionKey>;
   sessionId: string;
@@ -59,12 +61,14 @@ export interface SessionUserRow {
   user_type: UserType;
   company_id: string | null;
   company_name: string | null;
+  extra_company_ids: string[];
 }
 
 export async function findSessionUser(tokenHash: string): Promise<SessionUserRow | null> {
   return queryOne<SessionUserRow>(
     `SELECT s.id AS session_id, s.csrf_token, s.last_seen_at, u.id AS user_id, u.name, u.email, u.user_type,
-            u.company_id, c.name AS company_name
+            u.company_id, c.name AS company_name,
+            coalesce((SELECT array_agg(a.company_id) FROM user_company_access a WHERE a.user_id = u.id), '{}') AS extra_company_ids
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        LEFT JOIN companies c ON c.id = u.company_id

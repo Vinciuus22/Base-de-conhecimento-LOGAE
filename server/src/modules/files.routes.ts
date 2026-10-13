@@ -9,6 +9,7 @@ import {
   canViewAnnouncement,
   canViewArticle,
   canViewDocument,
+  canViewSupportDocument,
   canViewTicket,
 } from '../auth/policies.js';
 import { audit } from '../lib/audit.js';
@@ -65,6 +66,10 @@ export async function canAccessFile(user: AuthUser | null, file: StoredFile, db:
         db,
       );
       return !!d && canViewDocument(user, d);
+    }
+    case 'support_document': {
+      const d = await queryOne<{ visibility: string; deleted_at: Date | null }>(`SELECT visibility, deleted_at FROM support_documents WHERE id = $1`, [file.owner_id], db);
+      return !!d && canViewSupportDocument(user, d);
     }
     default:
       return false;

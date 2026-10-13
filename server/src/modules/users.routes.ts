@@ -109,12 +109,77 @@ export default async function userRoutes(app: FastifyInstance): Promise<void> {
     return { company: row };
   });
 
+  // ---- Acesso a empresas e sistemas contratados ----------------------------
+  app.get('/api/companies/overview', async (req) => {
+    requirePermission(req, 'users.manage');
+    const rows = await query(
+      `SELECT c.id, c.name, c.document, c.active,
+              coalesce((SELECT json_agg(json_build_object('id', s.id, 'name', s.name) ORDER BY s.name) FROM company_systems cs JOIN systems s ON s.id = cs.system_id WHERE cs.company_id = c.id), '[]') AS systems,
+              (SELECT count(*) FROM (SELECT u.id FROM users u WHERE u.company_id = c.id UNION SELECT a.user_id FROM user_company_access a WHERE a.company_id = c.id) x)::int AS access_count
+         FROM companies c ORDER BY c.name`,
+    );
+    return { items: rows.map((r) => ({ id: r.id, name: r.name, document: r.document, active: r.active, systems: r.systems, accessCount: r.access_count })) };
+  });
+
+  app.get('/api/users/:id/company-access', async (req) => {
+    requirePermission(req, 'users.manage');
+    const { id } = parse(z.object({ id: uuid }), req.params);
+    const u = await queryOne<{ company_id: string | null; company_name: string | null }>(`SELECT u.company_id, c.name AS company_name FROM users u LEFT JOIN companies c ON c.id = u.company_id WHERE u.id = $1`, [id]);
+    if (!u) throw notFound('Usuário não encontrado.');
+    const extra = await query<{ company_id: string }>(`SELECT company_id FROM user_company_access WHERE user_id = $1`, [id]);
+    return { primary: u.company_id ? { id: u.company_id, name: u.company_name } : null, companyIds: extra.map((e) => e.company_id) };
+  });
+
+  app.put('/api/users/:id/company-access', async (req) => {
+    const admin = requirePermission(req, 'users.manage');
+    const { id } = parse(z.object({ id: uuid }), req.params);
+    const body = parse(z.object({ companyIds: z.array(z.string().uuid()).max(200) }), req.body);
+    const target = await queryOne<{ company_id: string | null; name: string }>(`SELECT company_id, name FROM users WHERE id = $1`, [id]);
+    if (!target) throw notFound('Usuário não encontrado.');
+    const wanted = [...new Set(body.companyIds)].filter((c) => c !== target.company_id);
+    const found = await query<{ id: string; name: string }>(`SELECT id, name FROM companies WHERE id = ANY($1::uuid[])`, [wanted]);
+    if (found.length !== wanted.length) throw validationError('Empresa inválida.');
+    const before = await query<{ name: string }>(`SELECT c.name FROM user_company_access a JOIN companies c ON c.id = a.company_id WHERE a.user_id = $1 ORDER BY c.name`, [id]);
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM user_company_access WHERE user_id = $1 AND NOT (company_id = ANY($2::uuid[]))`, [id, wanted]);
+      for (const c of wanted) await client.query(`INSERT INTO user_company_access (user_id, company_id, granted_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [id, c, admin.id]);
+      const names = found.map((f) => f.name).sort();
+      await audit(
+        { actorId: admin.id, action: 'company.access_update', entityType: 'user', entityId: id, data: { user: target.name, changes: [{ field: 'Empresas com acesso', before: before.map((b) => b.name).join(', ') || null, after: names.join(', ') || null }] }, ip: req.ip },
+        client,
+      );
+    });
+    return { companyIds: wanted };
+  });
+
+  app.put('/api/companies/:id/systems', async (req) => {
+    const admin = requirePermission(req, 'users.manage');
+    const { id } = parse(z.object({ id: uuid }), req.params);
+    const body = parse(z.object({ systemIds: z.array(z.string().uuid()).max(100) }), req.body);
+    const company = await queryOne<{ name: string }>(`SELECT name FROM companies WHERE id = $1`, [id]);
+    if (!company) throw notFound('Empresa não encontrada.');
+    const wanted = [...new Set(body.systemIds)];
+    const found = await query<{ name: string }>(`SELECT name FROM systems WHERE id = ANY($1::uuid[])`, [wanted]);
+    if (found.length !== wanted.length) throw validationError('Sistema inválido.');
+    const before = await query<{ name: string }>(`SELECT s.name FROM company_systems cs JOIN systems s ON s.id = cs.system_id WHERE cs.company_id = $1 ORDER BY s.name`, [id]);
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM company_systems WHERE company_id = $1`, [id]);
+      for (const sid of wanted) await client.query(`INSERT INTO company_systems (company_id, system_id) VALUES ($1, $2)`, [id, sid]);
+      await audit(
+        { actorId: admin.id, action: 'company.systems_update', entityType: 'company', entityId: id, data: { company: company.name, changes: [{ field: 'Sistemas contratados', before: before.map((b) => b.name).join(', ') || null, after: found.map((f) => f.name).sort().join(', ') || null }] }, ip: req.ip },
+        client,
+      );
+    });
+    return { systemIds: wanted };
+  });
+
   // ---- Usuários ---------------------------------------------------------
   app.get('/api/users', async (req) => {
     requirePermission(req, 'users.manage');
     const q = parse(z.object({ q: z.string().max(100).optional(), userType: z.enum(['internal', 'external']).optional() }).merge(pageQuery), req.query);
     const rows = await query(
       `SELECT u.id, u.name, u.email, u.user_type, u.active, u.last_login_at, c.name AS company_name,
+              ((CASE WHEN u.company_id IS NULL THEN 0 ELSE 1 END) + (SELECT count(*) FROM user_company_access a WHERE a.user_id = u.id AND a.company_id IS DISTINCT FROM u.company_id))::int AS company_count,
               coalesce((SELECT array_agg(r.name ORDER BY r.name) FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id), '{}') AS roles,
               count(*) OVER () AS total
          FROM users u LEFT JOIN companies c ON c.id = u.company_id
@@ -127,7 +192,7 @@ export default async function userRoutes(app: FastifyInstance): Promise<void> {
       total: rows.length ? Number(rows[0]!.total) : 0,
       items: rows.map((r) => ({
         id: r.id, name: r.name, email: r.email, userType: r.user_type, active: r.active, lastLoginAt: r.last_login_at,
-        company: r.company_name, roles: r.roles,
+        company: r.company_name, companyCount: r.company_count, roles: r.roles,
       })),
     };
   });

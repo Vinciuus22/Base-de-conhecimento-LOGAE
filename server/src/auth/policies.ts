@@ -80,7 +80,7 @@ export function canSupportTicket(user: AuthUser | null, ticket: TicketAccessInfo
 export function canViewTicketAsCustomer(user: AuthUser | null, ticket: TicketAccessInfo): boolean {
   if (!user) return false;
   if (ticket.requester_id === user.id) return true;
-  return user.permissions.has('tickets.view_company') && !!user.companyId && user.companyId === ticket.company_id;
+  return user.permissions.has('tickets.view_company') && user.companyIds.includes(ticket.company_id);
 }
 
 export function canViewTicket(user: AuthUser | null, ticket: TicketAccessInfo): boolean {
@@ -120,4 +120,14 @@ export function canViewAnnouncement(user: AuthUser | null, a: AnnouncementAccess
     return !!user && user.userType === 'internal' && (user.permissions.has('articles.view_internal') || user.permissions.has('announcements.manage'));
   }
   return !!user && user.userType === 'internal' && user.permissions.has('announcements.manage');
+}
+
+// ---------------------------------------------------------------------------
+// Documentos de apoio
+// ---------------------------------------------------------------------------
+export function canViewSupportDocument(user: AuthUser | null, d: { visibility: string; deleted_at: Date | null }): boolean {
+  const staff = !!user && user.userType === 'internal' && (user.permissions.has('documents.manage') || user.permissions.has('articles.view_internal'));
+  if (d.deleted_at) return !!user && user.userType === 'internal' && user.permissions.has('documents.manage');
+  if (d.visibility === 'external') return anonymousAllowed(user);
+  return staff;
 }

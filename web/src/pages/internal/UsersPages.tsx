@@ -42,71 +42,125 @@ function useCompanies() {
   return useQuery({ queryKey: ['companies'], queryFn: () => get<{ items: Company[] }>('/api/companies') });
 }
 
+function PermissionsPanel({ userId, onBanner }: { userId: string; onBanner: (m: string) => void }) {
+  const catalog = useCatalog();
+  const queryClient = useQueryClient();
+  const detail = useQuery({ queryKey: ['user', userId], queryFn: () => get<{ user: UserDetail }>(`/api/users/${userId}`).then((r) => r.user) });
+  const [error, setError] = useState<string | null>(null);
+  if (detail.isLoading || !catalog.data) return <Spinner />;
+  const u = detail.data;
+  if (!u) return <Alert kind="danger">{errorMessage(detail.error)}</Alert>;
+  const groups = [...new Set(catalog.data.permissions.map((p) => p.group))];
+  const toggle = async (key: string, label: string, want: boolean) => {
+    setError(null);
+    const override = u.overrides.find((o) => o.permission === key);
+    const roleDefault = override ? override.effect !== 'grant' : u.effectivePermissions.includes(key);
+    const effect = want === roleDefault ? 'inherit' : want ? 'grant' : 'deny';
+    try {
+      const res = await put<{ user: UserDetail }>(`/api/users/${userId}/permissions/${key}`, { effect });
+      queryClient.setQueryData(['user', userId], res.user);
+      onBanner(`Permissão ${want ? 'concedida' : 'revogada'}: ${key} · ${u.name}`);
+      void label;
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <p className="small muted" style={{ margin: 0 }}>Marque para conceder, desmarque para revogar. Cada alteração é aplicada na hora e registrada na auditoria.</p>
+      {error && <p role="alert" className="banner banner-error">{error}</p>}
+      {groups.map((g) => (
+        <div key={g} className="stack" style={{ gap: 6 }}>
+          <strong className="tiny muted" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>{g}</strong>
+          {catalog.data!.permissions
+            .filter((p) => p.group === g)
+            .map((p) => {
+              const on = u.effectivePermissions.includes(p.key);
+              const disabled = p.internalOnly && u.userType === 'external';
+              return (
+                <label key={p.key} className={`perm-item ${on ? 'perm-on' : ''}`}>
+                  <input type="checkbox" checked={on} disabled={disabled} onChange={(e) => toggle(p.key, p.label, e.target.checked)} aria-label={`${p.label} (${p.key})`} />
+                  <span>
+                    <code className="perm-key">{p.key}</code>
+                    <span className="small" style={{ display: 'block' }}>{disabled ? 'Exclusiva de usuários internos.' : p.description}</span>
+                  </span>
+                </label>
+              );
+            })}
+        </div>
+      ))}
+      <Link to={`/interno/usuarios/${userId}`} className="small">Perfis, redefinição de senha, desativação e LGPD →</Link>
+    </div>
+  );
+}
+
 export function UsersPage() {
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
-  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const list = useQuery({ queryKey: ['users', q, type, page], queryFn: () => get<{ total: number; items: UserRow[] }>(`/api/users${qs({ q, userType: type, page, pageSize: 25 })}`) });
+  const [banner, setBanner] = useState<string | null>(null);
+  const list = useQuery({ queryKey: ['users', q, type], queryFn: () => get<{ total: number; items: UserRow[] }>(`/api/users${qs({ q, userType: type, page: 1, pageSize: 100 })}`) });
+  const current = list.data?.items.find((u) => u.id === selected) ?? null;
   return (
     <div className="page">
       <PageHeader
         title="Usuários e permissões"
-        subtitle="Perfis definem o conjunto inicial; permissões podem ser concedidas ou revogadas individualmente."
-        icon={<Users size={24} aria-hidden />}
+        subtitle="Vincule usuários, altere permissões individuais e gerencie perfis."
         actions={
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            <Plus size={16} aria-hidden /> Novo usuário
+          <Button variant="cta" onClick={() => setCreating(true)}>
+            Vincular novo usuário
           </Button>
         }
       />
-      <div className="card card-body row" style={{ marginBottom: 16 }}>
-        <input className="input" style={{ maxWidth: 320 }} placeholder="Nome ou e-mail" aria-label="Pesquisar usuários" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
-        <select className="select" style={{ width: 'auto' }} aria-label="Tipo de usuário" value={type} onChange={(e) => (setType(e.target.value), setPage(1))}>
-          <option value="">Todos</option>
-          <option value="internal">Internos</option>
-          <option value="external">Externos</option>
-        </select>
-      </div>
-      {list.isLoading ? (
-        <Spinner />
-      ) : !list.data?.items.length ? (
-        <div className="card">
-          <Empty title="Nenhum usuário encontrado." />
-        </div>
-      ) : (
-        <div className="card table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>Tipo</th>
-                <th>Empresa</th>
-                <th>Perfis</th>
-                <th>Situação</th>
-                <th>Último acesso</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <Link to={`/interno/usuarios/${u.id}`}>{u.name}</Link>
-                  </td>
-                  <td>{u.email}</td>
-                  <td>{u.userType === 'internal' ? 'Interno' : 'Externo'}</td>
-                  <td>{u.company ?? '—'}</td>
-                  <td className="small">{u.roles.join(', ') || '—'}</td>
-                  <td>{u.active ? <span className="badge badge-success">Ativo</span> : <span className="badge badge-danger">Inativo</span>}</td>
-                  <td className="small">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'Nunca'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {banner && (
+        <p role="status" className="banner banner-success" style={{ marginBottom: 16 }}>
+          {banner}
+        </p>
       )}
-      {list.data && <Pagination page={page} pageSize={25} total={list.data.total} onChange={setPage} />}
+      <div className="split">
+        <section className="card" aria-label="Usuários">
+          <div className="section-card-title">
+            <h2>Usuários</h2>
+          </div>
+          <div className="row" style={{ padding: '12px 16px', gap: 8 }}>
+            <input className="input" style={{ flex: 1, minWidth: 160 }} placeholder="Pesquisar por nome ou e-mail" aria-label="Pesquisar usuários" value={q} onChange={(e) => setQ(e.target.value)} />
+            <select className="select" style={{ width: 'auto' }} aria-label="Tipo de usuário" value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="internal">Internos</option>
+              <option value="external">Externos</option>
+            </select>
+          </div>
+          {list.isLoading ? (
+            <Spinner />
+          ) : !list.data?.items.length ? (
+            <Empty title="Nenhum usuário encontrado." />
+          ) : (
+            <ul className="user-list" data-testid="user-list">
+              {list.data.items.map((u) => (
+                <li key={u.id}>
+                  <button type="button" className={`user-item ${selected === u.id ? 'user-selected' : ''}`} aria-pressed={selected === u.id} onClick={() => setSelected(u.id)}>
+                    <span>
+                      <strong style={{ display: 'block' }}>{u.name}</strong>
+                      <span className="small muted" style={{ display: 'block' }}>{u.email}</span>
+                      <span className="tiny muted">{u.company ?? 'Sem empresa'} · {u.roles.join(', ') || 'sem perfil'}{!u.active && ' · inativo'}</span>
+                    </span>
+                    <span className={`badge ${u.userType === 'internal' ? 'badge-info' : 'badge-success'}`}>{u.userType === 'internal' ? 'Interno' : 'Externo'}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <aside className="card sticky-panel" aria-label="Permissões do usuário selecionado">
+          <div className="section-card-title">
+            <h2>{current ? `Permissões de ${current.name}` : 'Permissões'}</h2>
+          </div>
+          <div style={{ padding: 16 }}>
+            {selected && current ? <PermissionsPanel key={selected} userId={selected} onBanner={setBanner} /> : <p className="small muted" style={{ margin: 0 }}>Selecione um usuário para ver e alterar suas permissões.</p>}
+          </div>
+        </aside>
+      </div>
       {creating && <CreateUserModal onClose={() => setCreating(false)} />}
     </div>
   );
@@ -440,55 +494,108 @@ export function UserDetailPage() {
   );
 }
 
+interface CompanyOverview { id: string; name: string; document: string | null; active: boolean; systems: Array<{ id: string; name: string }>; accessCount: number }
+
 export function CompaniesPage() {
-  const companies = useCompanies();
+  const overview = useQuery({ queryKey: ['companies-overview'], queryFn: () => get<{ items: CompanyOverview[] }>('/api/companies/overview') });
+  const systemsQ = useQuery({ queryKey: ['taxonomy'], queryFn: () => get<{ systems: Array<{ id: string; name: string }> }>('/api/taxonomy') });
   const queryClient = useQueryClient();
-  const toast = useToast();
-  const [editing, setEditing] = useState<Partial<Company> | null>(null);
+  const [editing, setEditing] = useState<(Partial<CompanyOverview> & { systemIds?: string[] }) | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [banner, setBanner] = useState<string | null>(null);
+  const users = useQuery({ queryKey: ['users', q, '', 'companies'], queryFn: () => get<{ items: Array<UserRow & { companyCount: number }> }>(`/api/users${qs({ q, page: 1, pageSize: 100 })}`) });
+  const access = useQuery({
+    queryKey: ['company-access', selected],
+    queryFn: () => get<{ primary: { id: string; name: string } | null; companyIds: string[] }>(`/api/users/${selected}/company-access`),
+    enabled: !!selected,
+  });
+  const current = users.data?.items.find((u) => u.id === selected) ?? null;
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['companies-overview'] });
+    await queryClient.invalidateQueries({ queryKey: ['companies'] });
+    await queryClient.invalidateQueries({ queryKey: ['users'] });
+    await queryClient.invalidateQueries({ queryKey: ['company-access'] });
+  };
+  const toggleAccess = async (c: CompanyOverview, on: boolean) => {
+    if (!access.data || !current) return;
+    const ids = on ? [...access.data.companyIds, c.id] : access.data.companyIds.filter((x) => x !== c.id);
+    try {
+      await put(`/api/users/${current.id}/company-access`, { companyIds: ids });
+      setBanner(`Acesso ${on ? 'concedido' : 'revogado'}: ${c.name} · ${current.name}`);
+      await refresh();
+    } catch (err) {
+      setBanner(errorMessage(err));
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
         title="Empresas"
-        icon={<Building2 size={24} aria-hidden />}
-        actions={
-          <Button variant="primary" onClick={() => setEditing({ name: '', document: '', active: true })}>
-            <Plus size={16} aria-hidden /> Nova empresa
-          </Button>
-        }
+        subtitle="Defina a quais empresas cada usuário tem acesso e veja os sistemas contratados."
+        actions={<Button variant="cta" onClick={() => setEditing({ name: '', document: '', active: true, systemIds: [] })}>Nova empresa</Button>}
       />
-      {companies.isLoading ? (
-        <Spinner />
-      ) : (
-        <div className="card table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Documento</th>
-                <th>Usuários</th>
-                <th>Situação</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {companies.data?.items.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td>{c.document ?? '—'}</td>
-                  <td>{c.userCount}</td>
-                  <td>{c.active ? 'Ativa' : 'Inativa'}</td>
-                  <td>
-                    <Button size="sm" onClick={() => setEditing(c)}>
-                      Editar
-                    </Button>
-                  </td>
-                </tr>
+      {banner && <p role="status" className="banner banner-success" style={{ marginBottom: 16 }}>{banner}</p>}
+      <div className="split">
+        <section className="card" aria-label="Usuários">
+          <div className="section-card-title"><h2>Usuários</h2></div>
+          <div style={{ padding: '12px 16px' }}>
+            <input className="input" placeholder="Pesquisar por nome ou e-mail" aria-label="Pesquisar usuários" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          {users.isLoading ? <Spinner /> : (
+            <ul className="user-list">
+              {users.data?.items.map((u) => (
+                <li key={u.id}>
+                  <button type="button" className={`user-item ${selected === u.id ? 'user-selected' : ''}`} aria-pressed={selected === u.id} onClick={() => setSelected(u.id)}>
+                    <span>
+                      <strong style={{ display: 'block' }}>{u.name}</strong>
+                      <span className="tiny muted">Principal: {u.company ?? '—'} · {u.companyCount} {u.companyCount === 1 ? 'empresa' : 'empresas'}</span>
+                    </span>
+                    <span className={`badge ${u.userType === 'internal' ? 'badge-info' : 'badge-success'}`}>{u.userType === 'internal' ? 'Interno' : 'Externo'}</span>
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </ul>
+          )}
+        </section>
+        <aside className="card sticky-panel" aria-label="Empresas do usuário selecionado">
+          <div className="section-card-title"><h2>{current ? `Empresas de ${current.name}` : 'Empresas do usuário'}</h2></div>
+          <div style={{ padding: 16 }} className="stack">
+            {!current ? <p className="small muted" style={{ margin: 0 }}>Selecione um usuário para gerenciar as empresas a que ele tem acesso.</p> : !access.data || !overview.data ? <Spinner /> : overview.data.items.filter((c) => c.active).map((c) => {
+              const primary = access.data!.primary?.id === c.id;
+              const on = primary || access.data!.companyIds.includes(c.id);
+              return (
+                <label key={c.id} className={`perm-item ${on ? 'perm-on' : ''}`}>
+                  <input type="checkbox" checked={on} disabled={primary} onChange={(e) => toggleAccess(c, e.target.checked)} aria-label={`${c.name}${primary ? ' (empresa principal)' : ''}`} />
+                  <span>
+                    <strong className="small">{c.name}</strong>{primary && <span className="tiny muted"> · principal</span>}
+                    <span className="tiny muted" style={{ display: 'block' }}>{c.document ?? 'Sem CNPJ'} · {c.systems.map((x) => x.name).join(', ') || 'sem sistemas contratados'}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
+
+      <section className="card table-wrap" style={{ marginTop: 24 }} aria-label="Empresas">
+        <table className="table" data-testid="companies-table">
+          <thead><tr><th>Empresa</th><th>CNPJ</th><th>Sistemas contratados</th><th>Usuários com acesso</th><th /></tr></thead>
+          <tbody>
+            {overview.data?.items.map((c) => (
+              <tr key={c.id}>
+                <td>{c.name}{!c.active && <span className="badge" style={{ marginLeft: 6 }}>Inativa</span>}</td>
+                <td>{c.document ?? '—'}</td>
+                <td>{c.systems.length ? c.systems.map((x) => <span key={x.id} className="badge" style={{ marginRight: 4 }}>{x.name}</span>) : <span className="muted">—</span>}</td>
+                <td>{c.accessCount}</td>
+                <td><Button size="sm" onClick={() => setEditing({ ...c, systemIds: c.systems.map((x) => x.id) })}>Editar</Button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
       {editing && (
         <Modal
           title={editing.id ? 'Editar empresa' : 'Nova empresa'}
@@ -502,10 +609,11 @@ export function CompaniesPage() {
                   setError(null);
                   try {
                     const body = { name: editing.name, document: editing.document || null, active: editing.active ?? true };
+                    const id = editing.id ?? (await post<{ company: { id: string } }>('/api/companies', body)).company.id;
                     if (editing.id) await put(`/api/companies/${editing.id}`, body);
-                    else await post('/api/companies', body);
-                    await queryClient.invalidateQueries({ queryKey: ['companies'] });
-                    toast('success', 'Empresa salva.');
+                    await put(`/api/companies/${id}/systems`, { systemIds: editing.systemIds ?? [] });
+                    await refresh();
+                    setBanner('Empresa salva.');
                     setEditing(null);
                   } catch (err) {
                     setError(errorMessage(err));
@@ -524,6 +632,16 @@ export function CompaniesPage() {
             <Field label="CNPJ / documento" htmlFor="co-doc">
               <input id="co-doc" className="input" value={editing.document ?? ''} onChange={(e) => setEditing({ ...editing, document: e.target.value })} />
             </Field>
+            <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+              <legend className="label">Sistemas contratados</legend>
+              <div className="row" style={{ gap: 12 }}>
+                {systemsQ.data?.systems.map((s) => (
+                  <label key={s.id} className="checkbox">
+                    <input type="checkbox" checked={editing.systemIds?.includes(s.id) ?? false} onChange={(e) => setEditing({ ...editing, systemIds: e.target.checked ? [...(editing.systemIds ?? []), s.id] : (editing.systemIds ?? []).filter((x) => x !== s.id) })} /> {s.name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <label className="checkbox">
               <input type="checkbox" checked={editing.active ?? true} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> Ativa
             </label>

@@ -162,21 +162,21 @@ export default async function ticketRoutes(app: FastifyInstance): Promise<void> 
       req.query,
     );
     const range = dateRange(q.from, q.to);
-    const companyScope = q.scope === 'company' && user.permissions.has('tickets.view_company') && !!user.companyId;
+    const companyScope = q.scope === 'company' && user.permissions.has('tickets.view_company') && user.companyIds.length > 0;
     const rows = await query(
       `${SUMMARY_SELECT}
-        WHERE ${companyScope ? 't.company_id = $1' : 't.requester_id = $1'}
+        WHERE ${companyScope ? 't.company_id = ANY($1::uuid[])' : 't.requester_id = $1'}
           AND ($2::text IS NULL OR t.protocol ILIKE '%' || $2 || '%' OR immutable_unaccent(lower(t.title)) LIKE '%' || immutable_unaccent(lower($2)) || '%')
           AND ($3::text IS NULL OR t.status = $3)
           AND ($4::timestamptz IS NULL OR t.created_at >= $4)
           AND ($5::timestamptz IS NULL OR t.created_at <= $5)
         ORDER BY ${SORTS[q.sort]}
         LIMIT $6 OFFSET $7`,
-      [companyScope ? user.companyId : user.id, q.q?.trim() || null, q.status ?? null, range.from, range.to, q.pageSize, (q.page - 1) * q.pageSize],
+      [companyScope ? user.companyIds : user.id, q.q?.trim() || null, q.status ?? null, range.from, range.to, q.pageSize, (q.page - 1) * q.pageSize],
     );
     return {
       total: rows.length ? Number(rows[0]!.total) : 0,
-      canViewCompany: user.permissions.has('tickets.view_company') && !!user.companyId,
+      canViewCompany: user.permissions.has('tickets.view_company') && user.companyIds.length > 0,
       items: await serializeTicketSummary(rows),
     };
   });

@@ -23,6 +23,7 @@ import auditRoutes from './modules/audit.routes.js';
 import updatesRoutes from './modules/updates/routes.js';
 import cardsRoutes from './modules/cards/routes.js';
 import integrationRoutes from './modules/integrations/routes.js';
+import supportDocumentRoutes from './modules/support-documents.routes.js';
 import { embeddingsEnabled } from './modules/ai/embeddings.js';
 import { llmEnabled } from './modules/ai/llm.js';
 import { TEST_ACCOUNTS } from './db/test-accounts.js';
@@ -137,6 +138,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(updatesRoutes);
   await app.register(cardsRoutes);
   await app.register(integrationRoutes);
+  await app.register(supportDocumentRoutes);
 
   // Frontend compilado (SPA) servido pelo próprio backend em produção.
   const webDir = path.resolve(cfg.WEB_DIST_DIR);

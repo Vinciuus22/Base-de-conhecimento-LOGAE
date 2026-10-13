@@ -277,4 +277,30 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     expect((await ext.page.request.get('/api/integrations')).status()).toBe(403);
     await ext.context.close();
   });
+
+  test('documentos de apoio (link externo), usuários/permissões e empresas @design', async ({ browser }) => {
+    const { context, page } = await newSession(browser, { email: 'interno@teste.com', password: 'Teste@12345' });
+    const title = uid('API de pedidos');
+    await page.goto('/interno/documentos');
+    await page.getByRole('button', { name: 'Incluir documento' }).click();
+    await expect(page.getByText('Preencha: Título.')).toBeVisible();
+    await page.getByLabel('Título', { exact: true }).fill(title);
+    await page.getByRole('button', { name: 'Incluir documento' }).click();
+    await expect(page.getByText('Anexe um arquivo ou informe um link externo.')).toBeVisible();
+    await page.getByLabel('ou link externo').fill('https://exemplo.com/api-v2');
+    await page.getByRole('button', { name: 'Incluir documento' }).click();
+    await expect(page.getByTestId('support-doc-list')).toContainText(title);
+    await page.getByLabel('Pesquisar', { exact: true }).fill('inexistente-xyz');
+    await expect(page.getByText('Nenhum documento corresponde aos filtros aplicados.')).toBeVisible();
+
+    await page.goto('/interno/usuarios');
+    await page.getByTestId('user-list').getByRole('button').first().click();
+    await expect(page.getByLabel(/articles\.create/).first()).toBeVisible();
+
+    await page.goto('/interno/empresas');
+    await expect(page.getByTestId('companies-table')).toContainText('Empresa');
+    await page.goto('/interno/auditoria');
+    await expect(page.getByTestId('audit-table')).toContainText('document.support_create');
+    await context.close();
+  });
 });

@@ -113,11 +113,14 @@ export async function detectMime(file: ReceivedFile): Promise<string | null> {
   const detected = await fileTypeFromFile(file.tmpPath);
   if (detected) {
     if (detected.mime === 'application/x-cfb' && ext === '.doc') return 'application/msword';
+    if (detected.mime === 'application/x-cfb' && ext === '.xls') return 'application/vnd.ms-excel';
     if (detected.mime === 'video/quicktime' || detected.mime === 'video/mp4' || detected.mime === 'video/webm') return detected.mime;
     if (detected.mime === 'video/x-m4v') return 'video/mp4';
     return detected.mime;
   }
-  if ((ext === '.txt' || ext === '.csv') && (await looksLikeUtf8Text(file.tmpPath))) {
+  if (['.txt', '.csv', '.json', '.yaml', '.yml'].includes(ext) && (await looksLikeUtf8Text(file.tmpPath))) {
+    if (ext === '.json') return 'application/json';
+    if (ext === '.yaml' || ext === '.yml') return 'application/yaml';
     return ext === '.csv' ? 'text/csv' : 'text/plain';
   }
   return null;

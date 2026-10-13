@@ -21,7 +21,8 @@ import { ArticleHistoryPage } from './pages/internal/ArticleHistory';
 import { ArticlesListPage, AuditPage, DashboardPage, LocksPage } from './pages/internal/AdminPages';
 import { CompaniesPage, UserDetailPage, UsersPage } from './pages/internal/UsersPages';
 import { TaxonomyPage } from './pages/internal/TaxonomyPage';
-import { DocumentDetailPage, DocumentsPage, DocumentViewPage } from './pages/internal/DocumentsPages';
+import { DocumentDetailPage, DocumentViewPage } from './pages/internal/DocumentsPages';
+import { DocumentsHubPage } from './pages/internal/SupportDocuments';
 import { SupportQueuePage } from './pages/support/SupportQueue';
 import { SupportTicketPage } from './pages/support/SupportTicket';
 
@@ -79,6 +80,22 @@ export const router = createBrowserRouter([
       { path: '/tickets/novo', element: <NewTicketPage /> },
       { path: '/tickets/:id', element: <TicketDetailPage /> },
       {
+        path: '/interno/artigos/novo',
+        element: (
+          <RequireInternal any={['articles.create']}>
+            <ArticleEditorPage />
+          </RequireInternal>
+        ),
+      },
+      {
+        path: '/interno/artigos/:id/editar',
+        element: (
+          <RequireInternal any={['articles.edit', 'articles.edit_others']}>
+            <ArticleEditorPage />
+          </RequireInternal>
+        ),
+      },
+      {
         path: '/interno',
         element: (
           <RequireInternal>
@@ -88,22 +105,6 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <DashboardPage /> },
           { path: 'artigos', element: <ArticlesListPage /> },
-          {
-            path: 'artigos/novo',
-            element: (
-              <RequireInternal any={['articles.create']}>
-                <ArticleEditorPage />
-              </RequireInternal>
-            ),
-          },
-          {
-            path: 'artigos/:id/editar',
-            element: (
-              <RequireInternal any={['articles.edit', 'articles.edit_others']}>
-                <ArticleEditorPage />
-              </RequireInternal>
-            ),
-          },
           {
             path: 'artigos/:id/historico',
             element: (
@@ -122,7 +123,7 @@ export const router = createBrowserRouter([
           { path: 'integracoes/:id', element: <RequireInternal any={['integrations.view']}><IntegrationDetailPage /></RequireInternal> },
           { path: 'cards', element: <RequireInternal any={['cards.view']}><CardsPage /></RequireInternal> },
           { path: 'cards/:key', element: <RequireInternal any={['cards.view']}><CardDetailPage /></RequireInternal> },
-          { path: 'documentos', element: <RequireInternal any={['documents.manage']}><DocumentsPage /></RequireInternal> },
+          { path: 'documentos', element: <RequireInternal any={['documents.manage']}><DocumentsHubPage /></RequireInternal> },
           { path: 'documentos/:id', element: <RequireInternal any={['documents.manage']}><DocumentDetailPage /></RequireInternal> },
           { path: 'tickets', element: <RequireInternal any={['tickets.support', 'tickets.manage']}><SupportQueuePage /></RequireInternal> },
           { path: 'tickets/:id', element: <RequireInternal any={['tickets.support', 'tickets.manage']}><SupportTicketPage /></RequireInternal> },

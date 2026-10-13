@@ -18,6 +18,19 @@ export const DOCUMENT_IMPORT_MIME_TYPES = [
   'application/msword',
 ] as const;
 
+/** Documentos de apoio: PDF, Word, Excel, JSON, YAML e texto. */
+export const SUPPORT_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/json',
+  'application/yaml',
+  'text/plain',
+  'text/csv',
+] as const;
+
 export type FileKind = 'image' | 'video' | 'attachment' | 'document' | 'thumbnail';
 
 export function isImageMime(mime: string): boolean {
