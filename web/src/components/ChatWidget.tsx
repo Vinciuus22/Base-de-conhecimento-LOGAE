@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bot, FileText, MessageCircle, Newspaper, RotateCcw, Send, Ticket, X } from 'lucide-react';
+import { FileText, Newspaper, RotateCcw, Send, Sparkles, Ticket, X } from 'lucide-react';
 import { post, errorMessage } from '../lib/api';
 import type { ChatMessage } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
@@ -99,10 +99,17 @@ export function ChatWidget() {
     navigate('/tickets/novo', { state: { draft: offer, fromChat: true } });
   };
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   if (!open) {
     return (
-      <button type="button" className="btn btn-primary chat-launcher" onClick={() => setOpen(true)} aria-label="Abrir o assistente virtual">
-        <MessageCircle size={20} aria-hidden /> Assistente
+      <button type="button" className="chat-launcher" onClick={() => setOpen(true)} aria-label="Abrir o assistente virtual">
+        <Sparkles size={16} strokeWidth={1.6} aria-hidden /> Assistente
       </button>
     );
   }
@@ -110,17 +117,17 @@ export function ChatWidget() {
   return (
     <section className="chat-panel" aria-label="Assistente virtual">
       <div className="chat-head">
-        <Bot size={20} aria-hidden />
-        <div style={{ flex: 1 }}>
+        <span className="chat-avatar" aria-hidden>
+          <Sparkles size={14} strokeWidth={1.6} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <strong>Assistente virtual</strong>
-          <div className="tiny" style={{ opacity: 0.85 }}>
-            {user?.userType === 'internal' ? 'Consulta artigos internos e externos autorizados' : 'Consulta a Base de Conhecimento pública'}
-          </div>
+          <div className="tiny muted">{user?.userType === 'internal' ? 'Artigos internos e externos' : 'Base de Conhecimento pública'}</div>
         </div>
-        <button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label="Nova conversa" title="Nova conversa" onClick={() => (setState({ messages: [] }), setOffer(null))}>
+        <button type="button" className="chat-icon-btn" aria-label="Nova conversa" title="Nova conversa" onClick={() => (setState({ messages: [] }), setOffer(null))}>
           <RotateCcw size={16} aria-hidden />
         </button>
-        <button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label="Fechar assistente" onClick={() => setOpen(false)}>
+        <button type="button" className="chat-icon-btn" aria-label="Fechar assistente" onClick={() => setOpen(false)}>
           <X size={18} aria-hidden />
         </button>
       </div>
@@ -214,7 +221,7 @@ export function ChatWidget() {
             }
           }}
         />
-        <button type="submit" className="btn btn-primary btn-icon" style={{ alignSelf: 'flex-end', height: 44, width: 44 }} disabled={busy || input.trim().length < 2} aria-label="Enviar pergunta">
+        <button type="submit" className="chat-send" disabled={busy || input.trim().length < 2} aria-label="Enviar pergunta">
           <Send size={18} aria-hidden />
         </button>
       </form>

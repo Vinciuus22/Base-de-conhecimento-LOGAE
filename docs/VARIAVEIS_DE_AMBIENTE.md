@@ -23,7 +23,7 @@ inicialização (`server/src/config.ts`); valores inválidos impedem a partida.
 | `SESSION_TTL_HOURS` | `12` | Validade da sessão (deslizante) |
 | `COOKIE_SECURE` | `false` | `true` em produção (HTTPS) |
 | `TRUST_PROXY` | `false` | `true` atrás de proxy reverso |
-| `PUBLIC_ANONYMOUS_ACCESS` | `true` | Visitantes leem artigos externos e usam o chat |
+| `PUBLIC_ANONYMOUS_ACCESS` | `false` | `false` (padrão): login obrigatório antes de qualquer tela. `true`: visitantes leem artigos externos e usam o chat |
 | `RATE_LIMIT_LOGIN_PER_MIN` | `10` | Tentativas de login por IP |
 | `RATE_LIMIT_CHAT_PER_MIN` | `20` | Perguntas ao chat/auxílio da IA |
 | `RATE_LIMIT_TICKETS_PER_HOUR` | `20` | Aberturas de ticket |

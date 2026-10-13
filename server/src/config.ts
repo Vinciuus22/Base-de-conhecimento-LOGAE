@@ -27,7 +27,7 @@ const schema = z.object({
   SESSION_TTL_HOURS: int(12),
   COOKIE_SECURE: bool(false),
   TRUST_PROXY: bool(false),
-  PUBLIC_ANONYMOUS_ACCESS: bool(true),
+  PUBLIC_ANONYMOUS_ACCESS: bool(false),
 
   // Bloqueio de edição
   LOCK_TTL_SECONDS: int(120),

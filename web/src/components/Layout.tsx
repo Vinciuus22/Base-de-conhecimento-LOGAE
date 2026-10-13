@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
   FileStack,
@@ -21,11 +21,15 @@ import { useAuth } from '../context/AuthContext';
 import { ChatWidget } from './ChatWidget';
 
 export function AppShell() {
-  const { user, isInternal, logout, config } = useAuth();
+  const { user, isInternal, logout, config, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const appName = config?.appName ?? 'Base de Conhecimento';
+  // Login primeiro: sem sessão (e sem acesso anônimo habilitado) só a tela de entrada é acessível.
+  if (!loading && config && !user && !config.anonymousAccess) {
+    return <Navigate to={`/entrar?voltar=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
 
   return (
     <>
@@ -86,7 +90,7 @@ export function AppShell() {
           <span>Precisa de ajuda? Use o assistente ou <Link to="/tickets/novo">abra um ticket</Link>.</span>
         </div>
       </footer>
-      <ChatWidget />
+      {(user || config?.anonymousAccess) && <ChatWidget />}
     </>
   );
 }
