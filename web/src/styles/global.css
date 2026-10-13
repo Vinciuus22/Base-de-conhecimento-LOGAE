@@ -2157,3 +2157,20 @@ button.stat-card {
 .seal-pdf { background: #fbe0de; color: #8c1d18; }
 .seal-xls { background: #d6f3e7; color: #04291f; }
 .seal-doc { background: #ededed; color: #444; }
+
+/* Pré-visualização de comunicado */
+.preview-panel {
+  background: #e8f8f1;
+  border: 1px solid #a9e0c8;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.preview-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 24px;
+}

@@ -195,6 +195,8 @@ export function AnnouncementEditorPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const { user } = useAuth();
   const picker = useQuery({
     queryKey: ['announcement-article-search', articleQ],
     queryFn: () => get<{ results: Array<{ id: string; title: string }> }>(`/api/search${qs({ q: articleQ, pageSize: 8 })}`),
@@ -322,8 +324,41 @@ export function AnnouncementEditorPage() {
               ))}
           </div>
         </Field>
+        {preview && (
+          <section className="preview-panel" aria-label="Pré-visualização do comunicado" data-testid="announcement-preview">
+            <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+              <strong style={{ fontSize: 14, color: '#04291f' }}>
+                Pré-visualização — {current.visibility === 'external' ? 'visão do cliente externo' : 'visão do usuário interno'}
+              </strong>
+              <Button size="sm" onClick={() => setPreview(false)}>Fechar</Button>
+            </div>
+            <article className="preview-card">
+              <div className="row" style={{ gap: 8, fontSize: 12 }}>
+                <span className="badge badge-info">{ANNOUNCEMENT_CATEGORY_LABELS[current.category]}</span>
+                {current.systemIds.length ? (
+                  current.systemIds.map((sid) => <span key={sid} className="badge">{taxonomy.data?.systems.find((x) => x.id === sid)?.name ?? '—'}</span>)
+                ) : (
+                  <span className="badge">Nenhum sistema selecionado</span>
+                )}
+                <span className="muted">{formatDate(a?.publishedAt ?? new Date().toISOString())}</span>
+              </div>
+              <h2 style={{ margin: '10px 0', fontSize: 24, lineHeight: 1.3 }}>{current.title.trim() || 'Título do comunicado'}</h2>
+              {current.contentHtml.replace(/<[^>]*>/g, '').trim() || /<(img|video|div)/.test(current.contentHtml) ? (
+                <RichContent html={current.contentHtml} />
+              ) : (
+                <p className="muted">Descrição do comunicado.</p>
+              )}
+              <span className="tiny muted" style={{ display: 'block', borderTop: '1px solid #f0f0f0', paddingTop: 10, marginTop: 12 }}>
+                Publicado por {a?.author ?? user?.name ?? '—'}
+              </span>
+            </article>
+          </section>
+        )}
         {error && <Alert kind="danger">{error}</Alert>}
         <div className="btn-group">
+          <Button onClick={() => setPreview(true)} data-testid="open-preview">
+            <Eye size={16} aria-hidden /> Visualizar comunicado
+          </Button>
           <Button onClick={() => save()} loading={busy}>
             <Save size={16} aria-hidden /> Salvar
           </Button>

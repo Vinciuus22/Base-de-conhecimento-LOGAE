@@ -9,4 +9,4 @@ Login (sem cabeçalho/assistente) · cabeçalho verde com logo e navegação (In
 - "Nova permissão do sistema": as permissões são definidas em código (`shared/src/permissions.ts`), não cadastradas em tela.
 - "Esqueceu sua senha?": não há fluxo de redefinição por e-mail; a tela orienta procurar o administrador.
 - Categorias e sistemas mantém as abas (categorias, sistemas, tags e sinônimos) já existentes.
-- Pré-visualização do comunicado dentro do sistema e a barra superior do editor (Histórico/Salvar rascunho/Publicar) seguem o editor já existente.
+- A barra superior do editor (Histórico/Salvar rascunho/Publicar) seguem o editor já existente.

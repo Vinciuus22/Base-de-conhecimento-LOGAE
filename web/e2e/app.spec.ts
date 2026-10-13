@@ -303,4 +303,25 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     await expect(page.getByTestId('audit-table')).toContainText('document.support_create');
     await context.close();
   });
+
+  test('comunicado: pré-visualização antes de publicar @preview', async ({ browser }) => {
+    const { context, page } = await newSession(browser, { email: 'interno@teste.com', password: 'Teste@12345' });
+    const title = uid('Manutenção programada');
+    await page.goto('/interno/comunicados/novo');
+    await page.getByRole('button', { name: 'Visualizar comunicado' }).click();
+    const preview = page.getByTestId('announcement-preview');
+    await expect(preview).toContainText('Título do comunicado');
+    await expect(preview).toContainText('Nenhum sistema selecionado');
+    await expect(preview).toContainText('visão do usuário interno');
+    await page.getByLabel('Título', { exact: true }).fill(title);
+    await page.getByRole('button', { name: 'Externo' }).click();
+    await page.getByRole('group', { name: 'Plataformas vinculadas' }).getByRole('checkbox').first().check();
+    await page.locator('.ProseMirror').first().fill('O sistema ficará indisponível no sábado.');
+    await expect(preview).toContainText(title);
+    await expect(preview).toContainText('visão do cliente externo');
+    await expect(preview).toContainText('indisponível no sábado');
+    await preview.getByRole('button', { name: 'Fechar' }).click();
+    await expect(preview).toHaveCount(0);
+    await context.close();
+  });
 });
