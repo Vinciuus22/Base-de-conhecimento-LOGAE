@@ -2,8 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { ANNOUNCEMENT_CATEGORIES } from '@shared/domain.js';
 import { query, queryOne, withTransaction } from '../db/pool.js';
-import { requirePermission, requireInternal } from '../auth/context.js';
-import { canViewAnnouncement } from '../auth/policies.js';
+import { allowedVisibilities, requirePermission } from '../auth/context.js';
+import { anonymousAllowed, canViewAnnouncement } from '../auth/policies.js';
 import { audit } from '../lib/audit.js';
 import { notFound, validationError } from '../lib/errors.js';
 import { MAX_CONTENT_HTML_LENGTH, sanitizeRichHtml } from '../lib/sanitize.js';
@@ -12,14 +12,15 @@ import { dateRange, pageQuery, parse, uuid } from '../lib/validate.js';
 import { linkContentFiles } from './articles/service.js';
 
 /**
- * Comunicados: avisos internos. Somente usuários internos os consultam e somente
- * quem possui `announcements.manage` os cadastra. Podem ter imagens e vídeos e são
- * vinculados a uma ou mais plataformas (sistemas). Não são exibidos a clientes.
+ * Comunicados: avisos vinculados a uma ou mais plataformas (sistemas), com imagens e vídeos.
+ * Somente usuários internos com `announcements.manage` os cadastram. Os publicados como
+ * Externo são legíveis por clientes e visitantes; os Internos, somente pela equipe.
  */
 const inputSchema = z.object({
   title: z.string().trim().min(3, 'Informe o título.').max(200),
   contentHtml: z.string().max(MAX_CONTENT_HTML_LENGTH).default(''),
   category: z.enum(ANNOUNCEMENT_CATEGORIES),
+  visibility: z.enum(['internal', 'external'], { errorMap: () => ({ message: 'Selecione a visibilidade.' }) }),
   systemIds: z.array(z.string().uuid()).min(1, 'Vincule o comunicado a pelo menos uma plataforma.').max(30),
   relatedArticleIds: z.array(z.string().uuid()).max(10).default([]),
 });
@@ -45,6 +46,7 @@ async function serialize(id: string) {
     title: a.title,
     contentHtml: a.content_html,
     category: a.category,
+    visibility: a.visibility,
     systems,
     status: a.status,
     author: a.author_name,
@@ -68,7 +70,7 @@ async function setLinks(client: Parameters<typeof linkContentFiles>[4], id: stri
 
 export default async function announcementRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/announcements', async (req) => {
-    const user = requireInternal(req);
+    const user = req.auth;
     const q = parse(
       z.object({
         q: z.string().max(200).optional(),
@@ -80,15 +82,18 @@ export default async function announcementRoutes(app: FastifyInstance): Promise<
       }).merge(pageQuery),
       req.query,
     );
-    const manage = q.manage === '1' && user.permissions.has('announcements.manage');
-    if (!manage && !user.permissions.has('articles.view_internal') && !user.permissions.has('announcements.manage')) return { total: 0, items: [] };
+    const manage = q.manage === '1' && !!user?.permissions.has('announcements.manage') && user.userType === 'internal';
+    if (!manage && !anonymousAllowed(user)) return { total: 0, items: [] };
     const values: unknown[] = [];
     const where: string[] = [];
     const add = (sql: string, v: unknown) => {
       values.push(v);
       where.push(sql.replaceAll('?', `$${values.length}`));
     };
-    if (!manage) where.push(`n.status = 'published'`);
+    if (!manage) {
+      where.push(`n.status = 'published'`);
+      add('n.visibility = ANY(?::text[])', allowedVisibilities(user));
+    }
     if (q.q) add(`n.search_vector @@ websearch_to_tsquery('pt_unaccent', ?)`, q.q);
     if (q.system) add('EXISTS (SELECT 1 FROM announcement_systems x WHERE x.announcement_id = n.id AND x.system_id = ?)', q.system);
     if (q.category) add('n.category = ?', q.category);
@@ -97,7 +102,7 @@ export default async function announcementRoutes(app: FastifyInstance): Promise<
     if (range.to) add('coalesce(n.published_at, n.created_at) <= ?', range.to);
     values.push(q.pageSize, (q.page - 1) * q.pageSize);
     const rows = await query(
-      `SELECT n.id, n.title, n.category, n.status, n.published_at, n.created_at, left(n.content_text, 240) AS excerpt, u.name AS author_name,
+      `SELECT n.id, n.title, n.category, n.visibility, n.status, n.published_at, n.created_at, left(n.content_text, 240) AS excerpt, u.name AS author_name,
               coalesce((SELECT array_agg(s.name ORDER BY s.name) FROM announcement_systems x JOIN systems s ON s.id = x.system_id WHERE x.announcement_id = n.id), '{}') AS systems,
               count(*) OVER () AS total
          FROM announcements n JOIN users u ON u.id = n.author_id
@@ -109,7 +114,7 @@ export default async function announcementRoutes(app: FastifyInstance): Promise<
     return {
       total: rows.length ? Number(rows[0]!.total) : 0,
       items: rows.map((r) => ({
-        id: r.id, title: r.title, category: r.category, status: r.status, publishedAt: r.published_at, createdAt: r.created_at,
+        id: r.id, title: r.title, category: r.category, visibility: r.visibility, status: r.status, publishedAt: r.published_at, createdAt: r.created_at,
         excerpt: r.excerpt, systems: r.systems, author: r.author_name,
       })),
     };
@@ -129,8 +134,8 @@ export default async function announcementRoutes(app: FastifyInstance): Promise<
     const id = await withTransaction(async (client) => {
       const row = await queryOne<{ id: string }>(
         `INSERT INTO announcements (title, content_html, content_text, category, visibility, author_id)
-         VALUES ($1, $2, $3, $4, 'internal', $5) RETURNING id`,
-        [body.title, html, htmlToText(html), body.category, user.id],
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [body.title, html, htmlToText(html), body.category, body.visibility, user.id],
         client,
       );
       await setLinks(client, row!.id, body.systemIds, body.relatedArticleIds);
@@ -149,8 +154,8 @@ export default async function announcementRoutes(app: FastifyInstance): Promise<
     const html = sanitizeRichHtml(body.contentHtml);
     await withTransaction(async (client) => {
       const row = await queryOne(
-        `UPDATE announcements SET title = $2, content_html = $3, content_text = $4, category = $5, updated_at = now() WHERE id = $1 RETURNING id`,
-        [id, body.title, html, htmlToText(html), body.category],
+        `UPDATE announcements SET title = $2, content_html = $3, content_text = $4, category = $5, visibility = $6, updated_at = now() WHERE id = $1 RETURNING id`,
+        [id, body.title, html, htmlToText(html), body.category, body.visibility],
         client,
       );
       if (!row) throw notFound('Comunicado não encontrado.');

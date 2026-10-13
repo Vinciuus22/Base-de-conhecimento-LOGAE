@@ -21,7 +21,7 @@ export function Button({
   children,
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'primary' | 'danger' | 'ghost'; size?: 'sm'; loading?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'primary' | 'cta' | 'danger' | 'ghost'; size?: 'sm'; loading?: boolean }) {
   return (
     <button
       type="button"
@@ -411,10 +411,10 @@ const STATUS_KIND: Record<string, string> = {
   unpublished: 'badge-warning',
   archived: 'badge-danger',
   open: 'badge-info',
-  triage: 'badge-purple',
-  in_progress: 'badge-info',
-  waiting_user: 'badge-warning',
-  waiting_technical: 'badge-warning',
+  triage: '',
+  in_progress: 'badge-warning',
+  waiting_user: 'badge-orange',
+  waiting_technical: 'badge-orange',
   resolved: 'badge-success',
   closed: '',
   pending: '',
@@ -426,8 +426,8 @@ const STATUS_KIND: Record<string, string> = {
   approved: 'badge-success',
   rejected: 'badge-danger',
   low: '',
-  medium: 'badge-info',
-  high: 'badge-warning',
+  medium: 'badge-warning',
+  high: 'badge-danger',
   critical: 'badge-danger',
 };
 

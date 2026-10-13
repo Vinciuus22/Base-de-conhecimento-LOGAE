@@ -57,6 +57,8 @@ interface Change { id: string; operationId: string; type: string; user: string; 
 
 const dateOnly = (v: string | null | undefined) => (v ? formatDate(`${v}T12:00:00`) : '—');
 
+const STATUS_COLOR: Record<Status, string> = { inicio: '#0a4c8a', acompanhamento: '#d89a12', finalizado: '#19b987' };
+
 function StatusBadge({ status }: { status: Status }) {
   const m = STATUS_META[status];
   return <span className={`badge ${m.cls}`}>{m.label}</span>;
@@ -112,10 +114,10 @@ export function IntegrationsPage() {
   const hasFilters = Object.entries(filters).some(([k, v]) => v && !(k === 'sort' && v === 'updated') && !(k === 'dir' && v === 'desc'));
   const back = params.toString();
   const detailTo = (id: string) => `/interno/integracoes/${id}${back ? `?voltar=${encodeURIComponent(back)}` : ''}`;
-  const tile = (label: string, value: number | undefined, patch: Record<string, string>, active: boolean, tone?: string) => (
-    <button type="button" className={`card card-body stat-tile ${active ? 'stat-active' : ''}`} aria-pressed={active} onClick={() => set(active ? { status: '', overdue: '' } : { status: '', overdue: '', ...patch })} style={{ textAlign: 'left', cursor: 'pointer' }}>
-      <span className="small muted">{label}</span>
-      <strong style={{ fontSize: '1.6rem', color: tone }}>{value ?? '—'}</strong>
+  const tile = (label: string, value: number | undefined, patch: Record<string, string>, active: boolean, accent: string) => (
+    <button type="button" className="stat-card" style={{ ['--accent' as string]: accent }} aria-pressed={active} onClick={() => set(active ? { status: '', overdue: '' } : { status: '', overdue: '', ...patch })}>
+      <strong>{value ?? '—'}</strong>
+      <span>{label}</span>
     </button>
   );
   const sel = (id: string, label: string, key: string, options: Ref[] | undefined) => (
@@ -131,16 +133,15 @@ export function IntegrationsPage() {
     <div className="page">
       <PageHeader
         title="Integração de Clientes"
-        subtitle="Acompanhe os processos de integração dos clientes com outros sistemas."
-        icon={<Handshake size={24} aria-hidden />}
-        actions={can('integrations.create') ? <Link className="btn btn-primary" to="/interno/integracoes/nova"><Plus size={16} aria-hidden /> Nova integração</Link> : undefined}
+        subtitle="Acompanhamento dos processos de integração: reuniões, atividades, pendências e resultados."
+        actions={can('integrations.create') ? <Link className="btn btn-cta" to="/interno/integracoes/nova"><Plus size={16} aria-hidden /> Nova integração</Link> : undefined}
       />
-      <div className="grid grid-4" style={{ marginBottom: 16 }} data-testid="integration-stats">
-        {tile('Total de integrações', stats?.total, {}, false)}
-        {tile('Início', stats?.inicio, { status: 'inicio' }, filters.status === 'inicio')}
-        {tile('Acompanhamento', stats?.acompanhamento, { status: 'acompanhamento' }, filters.status === 'acompanhamento')}
-        {tile('Finalizadas', stats?.finalizado, { status: 'finalizado' }, filters.status === 'finalizado')}
-        {tile('Próxima ação vencida', stats?.overdue, { overdue: '1' }, filters.overdue === '1', stats?.overdue ? 'var(--danger, #b42318)' : undefined)}
+      <div className="stat-grid" data-testid="integration-stats">
+        {tile('Total de integrações', stats?.total, {}, false, '#064b3a')}
+        {tile('Em início', stats?.inicio, { status: 'inicio' }, filters.status === 'inicio', '#0a4c8a')}
+        {tile('Em acompanhamento', stats?.acompanhamento, { status: 'acompanhamento' }, filters.status === 'acompanhamento', '#8a5a00')}
+        {tile('Finalizadas', stats?.finalizado, { status: 'finalizado' }, filters.status === 'finalizado', '#19b987')}
+        {tile('Próxima ação vencida', stats?.overdue, { overdue: '1' }, filters.overdue === '1', '#b3261e')}
       </div>
       <div className="card card-body" style={{ marginBottom: 16 }}>
         <div className="grid grid-4">
@@ -155,13 +156,18 @@ export function IntegrationsPage() {
           {sel('ig-sy', 'TMS', 'systemId', L?.systems)}
           {sel('ig-cs', 'CS/GC', 'csGcId', L?.users)}
           {sel('ig-op', 'Responsável operacional', 'operatorId', L?.users)}
+        </div>
+        <details style={{ marginTop: 12 }} open={!!(filters.createdFrom || filters.createdTo || filters.expectedFrom || filters.expectedTo || filters.updatedFrom || filters.updatedTo)}>
+          <summary className="small" style={{ cursor: 'pointer' }}>Filtros de data</summary>
+          <div className="grid grid-4" style={{ marginTop: 8 }}>
           <Field label="Criado a partir de" htmlFor="ig-cf"><input id="ig-cf" type="date" className="input" value={filters.createdFrom} onChange={(e) => set({ createdFrom: e.target.value })} /></Field>
           <Field label="Criado até" htmlFor="ig-ct"><input id="ig-ct" type="date" className="input" value={filters.createdTo} onChange={(e) => set({ createdTo: e.target.value })} /></Field>
           <Field label="Conclusão prevista a partir de" htmlFor="ig-ef"><input id="ig-ef" type="date" className="input" value={filters.expectedFrom} onChange={(e) => set({ expectedFrom: e.target.value })} /></Field>
           <Field label="Conclusão prevista até" htmlFor="ig-et"><input id="ig-et" type="date" className="input" value={filters.expectedTo} onChange={(e) => set({ expectedTo: e.target.value })} /></Field>
           <Field label="Atualizado a partir de" htmlFor="ig-uf"><input id="ig-uf" type="date" className="input" value={filters.updatedFrom} onChange={(e) => set({ updatedFrom: e.target.value })} /></Field>
           <Field label="Atualizado até" htmlFor="ig-ut"><input id="ig-ut" type="date" className="input" value={filters.updatedTo} onChange={(e) => set({ updatedTo: e.target.value })} /></Field>
-        </div>
+          </div>
+        </details>
         <div className="row" style={{ gap: 12, flexWrap: 'wrap', marginTop: 12, justifyContent: 'space-between' }}>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <label className="row" style={{ gap: 6 }}>
@@ -190,18 +196,27 @@ export function IntegrationsPage() {
       ) : view === 'cards' ? (
         <div className="grid grid-3" data-testid="integration-cards">
           {list.data.items.map((i) => (
-            <article key={i.id} className="card card-body" data-testid="integration-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+            <article key={i.id} className="card card-body integration-card" data-testid="integration-card" style={{ ['--status-color' as string]: STATUS_COLOR[i.status] }}>
+              <div className="row" style={{ justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                <h3 style={{ margin: 0, fontSize: 17 }}><Link to={detailTo(i.id)}>{i.company.name}</Link></h3>
                 <StatusBadge status={i.status} />
-                {i.overdue && <span className="badge badge-danger"><AlertTriangle size={12} aria-hidden /> Ação vencida</span>}
               </div>
-              <h3 style={{ margin: 0 }}><Link to={detailTo(i.id)}>{i.company.name}</Link></h3>
               <div className="small"><strong>TMS:</strong> {i.system.name}</div>
-              <div className="small" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}><strong>Objetivo:</strong> {i.objective}</div>
-              <div className="small"><strong>CS/GC:</strong> {i.csGc.name}</div>
-              <div className="small"><strong>Operacional:</strong> {i.operator?.name ?? <span className="muted">não definido</span>}</div>
-              <div className="small"><strong>Próxima ação:</strong> {i.nextAction ? <>{i.nextAction}{i.nextActionDue && <> · {dateOnly(i.nextActionDue)}</>}</> : <span className="muted">não cadastrada</span>}</div>
-              <div className="tiny muted" style={{ marginTop: 'auto' }}>Criado em {formatDate(i.createdAt)} · atualizado em {formatDateTime(i.updatedAt)}</div>
+              <div className="small" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{i.objective}</div>
+              <dl className="integration-meta">
+                <div><dt>CS/GC</dt><dd>{i.csGc.name}</dd></div>
+                <div><dt>Responsável</dt><dd>{i.operator?.name ?? <span className="muted">Não definido</span>}</dd></div>
+                <div><dt>Criada em</dt><dd>{formatDate(i.createdAt)}</dd></div>
+                <div><dt>Atualizada em</dt><dd>{formatDateTime(i.updatedAt)}</dd></div>
+              </dl>
+              {i.nextAction ? (
+                <div className={`next-action ${i.overdue ? 'next-action-overdue' : ''}`}>
+                  <strong className="small">{i.overdue ? 'Próxima ação vencida' : 'Próxima ação'}</strong>
+                  <div className="small">{i.nextAction}{i.nextActionDue && <> · {dateOnly(i.nextActionDue)}</>}</div>
+                </div>
+              ) : (
+                <div className="tiny muted">Próxima ação não cadastrada</div>
+              )}
             </article>
           ))}
         </div>
@@ -686,7 +701,7 @@ export function IntegrationDetailPage() {
         subtitle={<span className="row" style={{ gap: 8, flexWrap: 'wrap' }}><StatusBadge status={i.status} />{i.archived && <span className="badge">Arquivada</span>}{i.overdue && <span className="badge badge-danger"><AlertTriangle size={12} aria-hidden /> Próxima ação vencida</span>}<span className="small muted">Criado em {formatDateTime(i.createdAt)} por {i.createdBy?.name} · última atualização {formatDateTime(i.updatedAt)}</span></span>}
         actions={!form ? (
           <div className="btn-group" style={{ flexWrap: 'wrap' }}>
-            {editable && <Button variant="primary" onClick={startEdit}><Pencil size={16} aria-hidden /> Alterar</Button>}
+            {editable && <Button variant="cta" onClick={startEdit}><Pencil size={16} aria-hidden /> Alterar</Button>}
             {!i.archived && i.status !== 'finalizado' && can('integrations.finish') && <Button onClick={() => setDialog('finish')}><CheckCircle2 size={16} aria-hidden /> Finalizar</Button>}
             {!i.archived && i.status === 'finalizado' && can('integrations.reopen') && <Button onClick={() => setDialog('reopen')}><RotateCcw size={16} aria-hidden /> Reabrir</Button>}
             {can('integrations.archive') && (i.archived ? <Button onClick={() => setDialog('restore')}>Restaurar</Button> : <Button onClick={() => setDialog('archive')}><Archive size={16} aria-hidden /> Arquivar</Button>)}

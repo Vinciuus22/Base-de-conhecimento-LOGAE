@@ -99,7 +99,7 @@ describe('Atualizações — integração com o Jira', () => {
     const anon = await anonymous();
     const external = await loginAs({ type: 'external' });
     const internal = await loginAs({ roles: ['internal_reader'] });
-    const ids = async (s: Session) => (await s.request('GET', '/api/updates?pageSize=100')).json().items.map((i: { jiraKey: string }) => i.jiraKey);
+    const ids = async (s: Session) => (await s.request('GET', '/api/updates?pageSize=100')).json().items.map((i: { title: string }) => i.title.replace('Entrega ', ''));
     for (const s of [anon, external]) {
       const list = await ids(s);
       expect(list).toEqual(expect.arrayContaining([ext, both]));
@@ -107,6 +107,12 @@ describe('Atualizações — integração com o Jira', () => {
       expect(list).not.toContain(none);
     }
     expect(await ids(internal)).toEqual(expect.arrayContaining([ext, both, int, none]));
+    // externos não recebem link do Jira nem a visibilidade; internos recebem
+    const sample = (await external.request('GET', '/api/updates?pageSize=100')).json().items[0];
+    expect(sample).not.toHaveProperty('jiraUrl');
+    expect(sample).not.toHaveProperty('jiraKey');
+    expect(sample).not.toHaveProperty('visibility');
+    expect((await internal.request('GET', '/api/updates?pageSize=100')).json().items[0]).toMatchObject({ jiraKey: expect.any(String), visibility: expect.any(String) });
   });
 
   it('usuários externos apenas visualizam: não alteram nem sincronizam; acesso direto ao interno é negado', async () => {
@@ -118,7 +124,7 @@ describe('Atualizações — integração com o Jira', () => {
     expect((await (await anonymous()).request('GET', `/api/updates/${row.id}`)).statusCode).toBe(404);
     expect((await external.request('PUT', `/api/updates/${row.id}`, { status: 'hidden' })).statusCode).toBe(403);
     expect((await external.request('POST', '/api/updates/sync')).statusCode).toBe(403);
-    expect((await external.request('GET', '/api/updates?manage=1')).json().items.map((i: { jiraKey: string }) => i.jiraKey)).not.toContain(k);
+    expect((await external.request('GET', '/api/updates?manage=1')).json().items.map((i: { title: string }) => i.title.replace('Entrega ', ''))).not.toContain(k);
     const reader = await loginAs({ roles: ['internal_reader'] });
     expect((await reader.request('PUT', `/api/updates/${row.id}`, { status: 'hidden' })).statusCode).toBe(403);
     expect((await reader.request('GET', `/api/updates/${row.id}`)).statusCode).toBe(200);
@@ -130,7 +136,7 @@ describe('Atualizações — integração com o Jira', () => {
     expect((await hook(issue(k, { status: 'Em andamento', category: 'indeterminate' }))).json().results[k]).toBe('hidden');
     const status = async () => (await queryOne<{ status: string }>(`SELECT status FROM updates WHERE jira_key = $1`, [k]))!.status;
     expect(await status()).toBe('hidden');
-    expect((await (await anonymous()).request('GET', '/api/updates?pageSize=100')).json().items.map((i: { jiraKey: string }) => i.jiraKey)).not.toContain(k);
+    expect((await (await anonymous()).request('GET', '/api/updates?pageSize=100')).json().items.map((i: { title: string }) => i.title.replace('Entrega ', ''))).not.toContain(k);
     expect((await hook(issue(k, { summary: 'Título revisado' }))).json().results[k]).toBe('updated');
     expect(await status()).toBe('published');
     expect((await queryOne<{ title: string }>(`SELECT title FROM updates WHERE jira_key = $1`, [k]))!.title).toBe('Título revisado');

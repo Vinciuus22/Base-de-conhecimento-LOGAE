@@ -5,7 +5,7 @@ import { useAuth } from './context/AuthContext';
 import { AppShell, InternalLayout } from './components/Layout';
 import { Empty, Spinner } from './components/ui';
 import { HomePage } from './pages/Home';
-import { SearchPage } from './pages/Search';
+
 import { ArticlePage } from './pages/Article';
 import { LoginPage } from './pages/Login';
 import { AccountPage } from './pages/Account';
@@ -62,18 +62,18 @@ function NotFound() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/entrar', element: <LoginPage /> },
   {
     element: <AppShell />,
     children: [
       { path: '/', element: <HomePage /> },
-      { path: '/busca', element: <SearchPage /> },
+      { path: '/busca', element: <Navigate to="/" replace /> },
       { path: '/artigos/:slug', element: <ArticlePage /> },
       { path: '/atualizacoes', element: <UpdatesPage /> },
       { path: '/atualizacoes/:id', element: <UpdateViewPage /> },
-      { path: '/comunicados', element: <RequireInternal><AnnouncementsPage /></RequireInternal> },
-      { path: '/comunicados/:id', element: <RequireInternal><AnnouncementViewPage /></RequireInternal> },
+      { path: '/comunicados', element: <AnnouncementsPage /> },
+      { path: '/comunicados/:id', element: <AnnouncementViewPage /> },
       { path: '/documentos/:id', element: <DocumentViewPage /> },
-      { path: '/entrar', element: <LoginPage /> },
       { path: '/conta', element: <AccountPage /> },
       { path: '/tickets', element: <MyTicketsPage /> },
       { path: '/tickets/novo', element: <NewTicketPage /> },

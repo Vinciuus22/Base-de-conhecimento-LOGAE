@@ -21,6 +21,16 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   comment_deleted: 'Comentário removido',
   card_created: 'Card criado',
 };
+/** Cor derivada do nome do status: status novos do Jira caem no neutro. */
+export function statusTone(name: string | null): string {
+  const n = (name ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  if (/pronto|conclu|done|finaliz/.test(n)) return 'badge-success';
+  if (/backlog/.test(n)) return '';
+  if (/para desenvolver|desenvolvimento/.test(n)) return 'badge-warning';
+  if (/code review|validacao|testar|teste/.test(n)) return 'badge-purple';
+  if (/deploy|atualizar/.test(n)) return 'badge-info';
+  return '';
+}
 const typeLabel = (t: string | null) => (t ? (EVENT_TYPE_LABELS[t] ?? t) : '—');
 
 interface SyncInfo {
@@ -100,27 +110,27 @@ function SyncBanner({ sync }: { sync: SyncInfo }) {
   });
   const bad = sync.state !== 'ok';
   const text = {
-    ok: 'Dados atualizados.',
+    ok: `Integração Jira ativa${sync.webhookConfigured ? ' — webhook' : ''}${sync.autoSyncMinutes > 0 ? ` + varredura a cada ${sync.autoSyncMinutes} min` : ''}`,
     stale: 'Os dados podem estar desatualizados: não há sincronização recente.',
     failed: 'A última sincronização falhou; exibindo os últimos dados salvos.',
     partial: 'A última sincronização foi parcial; parte do histórico pode estar incompleta.',
     not_configured: 'Integração com o Jira não configurada.',
   }[sync.state];
   return (
-    <div className={`alert ${bad ? 'alert-warning' : 'alert-info'}`} role="status" data-testid="sync-banner" style={{ marginBottom: 16 }}>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+    <div className="card sync-banner" role="status" data-testid="sync-banner" style={{ ['--accent' as string]: bad ? '#b3261e' : '#19b987' }}>
+      <div className="row" style={{ gap: 12, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div>
-          <strong className="row" style={{ gap: 6 }}>
-            {bad ? <AlertTriangle size={16} aria-hidden /> : <CheckCircle2 size={16} aria-hidden />} {text}
+          <strong className="row" style={{ gap: 8, fontWeight: 500 }}>
+            <span className="status-dot" aria-hidden /> {text}
           </strong>
-          <div className="tiny">
-            Última sincronização bem-sucedida: {sync.lastSuccessAt ? formatDateTime(sync.lastSuccessAt) : 'nunca'} · Projetos: {sync.projects.join(', ')} · Somente consulta: alterações são feitas no Jira.
+          <div className="tiny muted">
+            Última sincronização bem-sucedida: {sync.lastSuccessAt ? formatDateTime(sync.lastSuccessAt) : 'nunca'} · projetos {sync.projects.join(' e ')}
           </div>
-          {sync.lastRun?.error && <div className="tiny">Erro registrado: {sync.lastRun.error.split('\n')[0]}</div>}
+          {sync.lastRun?.error && <div className="tiny" style={{ color: '#8c1d18' }}>Erro registrado: {sync.lastRun.error.split('\n')[0]}</div>}
         </div>
         {can('cards.sync') && (
           <Button size="sm" onClick={() => run.mutate()} loading={run.isPending} disabled={!sync.apiConfigured}>
-            <RefreshCw size={14} aria-hidden /> Atualizar agora
+            {run.isPending ? 'Sincronizando…' : 'Sincronizar agora'}
           </Button>
         )}
       </div>
@@ -153,7 +163,7 @@ export function CardsPage() {
 
   return (
     <div className="page">
-      <PageHeader title="Atualizações dos Cards" subtitle="Cards monitorados do Jira e seu histórico de alterações (somente consulta)." icon={<KanbanSquare size={24} aria-hidden />} />
+      <PageHeader title="Atualizações dos Cards" subtitle="Consulta aos cards monitorados nos quadros Jira. Somente leitura — alterações continuam sendo feitas no Jira." />
       {list.data && <SyncBanner sync={list.data.sync} />}
       <div className="card card-body" style={{ marginBottom: 16 }}>
         <div className="grid grid-4">
@@ -284,7 +294,7 @@ export function CardsPage() {
                     {c.projectKey}
                     {c.boardName && <div className="tiny muted">{c.boardName}</div>}
                   </td>
-                  <td>{c.status ? <span className="badge badge-info">{c.status}</span> : '—'}</td>
+                  <td>{c.status ? <span className={`badge ${statusTone(c.status)}`}>{c.status}</span> : <span className="muted">Não informado pelo Jira</span>}</td>
                   <td>{c.assignee ?? <span className="muted">Sem responsável</span>}</td>
                   <td>{formatDateTime(c.lastChangeAt)}</td>
                   <td>
@@ -417,10 +427,9 @@ export function CardDetailPage() {
       </Link>
       <PageHeader
         title={`${c.key} — ${c.title}`}
-        icon={<KanbanSquare size={24} aria-hidden />}
         actions={
           c.url ? (
-            <a className="btn" href={c.url} target="_blank" rel="noreferrer noopener">
+            <a className="btn btn-cta" href={c.url} target="_blank" rel="noreferrer noopener">
               <ExternalLink size={16} aria-hidden /> Abrir no Jira
             </a>
           ) : undefined
@@ -433,7 +442,7 @@ export function CardDetailPage() {
       <section className="card card-body" aria-label="Resumo do card" style={{ margin: '16px 0' }}>
         <dl className="grid grid-3 small" style={{ margin: 0 }}>
           <div><dt className="muted">Projeto</dt><dd>{c.projectKey}{c.projectName ? ` — ${c.projectName}` : ''}{c.boardName ? ` · ${c.boardName}` : ''}</dd></div>
-          <div><dt className="muted">Status atual</dt><dd>{c.status ? <span className="badge badge-info">{c.status}</span> : '—'}</dd></div>
+          <div><dt className="muted">Status atual</dt><dd>{c.status ? <span className={`badge ${statusTone(c.status)}`}>{c.status}</span> : <span className="muted">Não informado pelo Jira</span>}</dd></div>
           <div><dt className="muted">Responsável atual</dt><dd>{c.assignee ?? 'Sem responsável'}</dd></div>
           <div><dt className="muted">Prioridade</dt><dd>{c.priority ?? 'Não informada'}</dd></div>
           <div><dt className="muted">Criado em</dt><dd>{formatDateTime(c.createdAt)}</dd></div>

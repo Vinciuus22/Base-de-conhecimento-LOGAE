@@ -1,181 +1,154 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, ChevronRight, Clock, FolderOpen, Rocket, Search, Ticket, TrendingUp, Building } from 'lucide-react';
 import { get } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useAuth } from '../context/AuthContext';
-import { openChat } from '../components/ChatWidget';
 import { Empty, Spinner } from '../components/ui';
+import { SearchResults } from './Search';
 
+interface ArticleItem { id: string; slug: string; title: string; summary: string; updatedAt: string; category: string | null }
 interface HomeData {
   categories: Array<{ id: string; name: string; slug: string; description: string | null; articleCount: number }>;
-  recent: Array<{ id: string; slug: string; title: string; summary: string; updatedAt: string; category: string | null }>;
-  popular: Array<{ id: string; slug: string; title: string; summary: string; updatedAt: string; category: string | null }>;
-  updates: Array<{ id: string; jiraKey: string; title: string; release: string; date: string; system: string | null }>;
+  recent: ArticleItem[];
+  popular: ArticleItem[];
+  mine: ArticleItem[];
+  systems: Array<{ id: string; name: string; slug: string }>;
 }
 
-export function SearchBox({ initial = '', autoFocus }: { initial?: string; autoFocus?: boolean }) {
-  const [q, setQ] = useState(initial);
-  const navigate = useNavigate();
+const SEARCH_KEYS = ['q', 'category', 'system', 'tag', 'visibility', 'from', 'to'];
+
+function ArticleList({ title, subtitle, items, empty }: { title: string; subtitle: string; items: ArticleItem[]; empty: string }) {
   return (
-    <form
-      role="search"
-      className="search-box"
-      onSubmit={(e) => {
-        e.preventDefault();
-        navigate(`/busca?q=${encodeURIComponent(q.trim())}`);
-      }}
-    >
-      <label htmlFor="home-search" className="sr-only">
-        Pesquisar na Base de Conhecimento
-      </label>
-      <input
-        id="home-search"
-        type="search"
-        placeholder="Ex.: erro ao exportar relatório"
-        value={q}
-        autoFocus={autoFocus}
-        onChange={(e) => setQ(e.target.value)}
-        autoComplete="off"
-      />
-      <button type="submit">
-        <Search size={18} aria-hidden /> <span>Pesquisar</span>
-      </button>
-    </form>
+    <section className="card" aria-label={title}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{title}</h2>
+        <span className="small muted" style={{ fontSize: 13 }}>{subtitle}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="small muted" style={{ padding: '16px 20px', margin: 0 }}>{empty}</p>
+      ) : (
+        <ul className="article-list">
+          {items.map((a) => (
+            <li key={a.id}>
+              <Link to={`/artigos/${a.slug}`}>{a.title}</Link>
+              <div className="tiny muted">{a.category ?? 'Sem categoria'} · atualizado em {formatDate(a.updatedAt)}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
 export function HomePage() {
   const { user, isInternal, config } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const urlQ = params.get('q') ?? '';
+  const [text, setText] = useState(urlQ);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { data, isLoading } = useQuery({ queryKey: ['home', user?.id], queryFn: () => get<HomeData>('/api/home') });
+  const searching = SEARCH_KEYS.some((k) => params.get(k));
+
+  // mantém o campo em sincronia quando a URL muda por outro caminho (ex.: "Limpar", sugestões)
+  useEffect(() => setText(urlQ), [urlQ]);
+
+  const setParam = (patch: Record<string, string>) => {
+    const next = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(patch)) (v ? next.set(k, v) : next.delete(k));
+    next.delete('page');
+    setParams(next, { replace: true });
+  };
+  const onType = (v: string) => {
+    setText(v);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setParam({ q: v.trim() }), 300);
+  };
+  const activeSystem = params.get('system') ?? '';
 
   return (
     <>
       <section className="hero">
         <div className="hero-inner">
           <h1>Como podemos ajudar?</h1>
-          <p>Pesquise artigos, procedimentos, tutoriais e atualizações dos sistemas.</p>
-          <SearchBox autoFocus />
-          <div className="hero-actions">
-            <button type="button" className="btn" onClick={openChat}>
-              <Bot size={18} aria-hidden /> Perguntar ao assistente
+          <p>Pesquise artigos, procedimentos e tutoriais da base de conhecimento.</p>
+          <form
+            role="search"
+            className="hero-search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              clearTimeout(timer.current);
+              setParam({ q: text.trim() });
+            }}
+          >
+            <label htmlFor="home-search" className="sr-only">
+              Pesquisar na Base de Conhecimento
+            </label>
+            <input id="home-search" type="search" placeholder="Pesquise por título, palavra-chave, categoria ou sistema" value={text} onChange={(e) => onType(e.target.value)} autoComplete="off" />
+            <button type="button" className="hero-clear" onClick={() => { clearTimeout(timer.current); setText(''); setParams({}, { replace: true }); }}>
+              Limpar
             </button>
-            <Link className="btn" to="/tickets/novo">
-              <Ticket size={18} aria-hidden /> Abrir ticket
-            </Link>
-            {isInternal && (
-              <Link className="btn" to="/interno">
-                <Building size={18} aria-hidden /> Ambiente interno
-              </Link>
-            )}
-          </div>
+            <button type="submit" className="sr-only">Pesquisar</button>
+          </form>
+          {data && data.systems.length > 0 && (
+            <div className="hero-chips" role="group" aria-label="Filtrar por sistema">
+              {data.systems.map((s) => (
+                <button key={s.id} type="button" className="hero-chip" aria-pressed={activeSystem === s.id} onClick={() => setParam({ system: activeSystem === s.id ? '' : s.id })}>
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
-      <div className="page">
+      <div className="page" style={{ maxWidth: 1180, padding: '32px 20px 56px' }}>
         {!config?.anonymousAccess && !user ? (
           <Empty title="Entre para acessar a Base de Conhecimento">
             <Link to="/entrar" className="btn btn-primary" style={{ marginTop: 8 }}>
               Entrar
             </Link>
           </Empty>
+        ) : searching ? (
+          <SearchResults />
         ) : isLoading || !data ? (
           <Spinner />
         ) : (
-          <div className="stack" style={{ gap: 28 }}>
+          <div className="stack" style={{ gap: 30 }}>
             <section aria-labelledby="cat-title">
-              <h2 id="cat-title" className="row" style={{ gap: 8 }}>
-                <FolderOpen size={20} aria-hidden /> Categorias
-              </h2>
+              <h2 id="cat-title">Artigos por categoria</h2>
               {data.categories.length === 0 ? (
                 <Empty title="Nenhuma categoria cadastrada." />
               ) : (
-                <div className="grid grid-3">
+                <div className="category-grid">
                   {data.categories.map((c) => (
-                    <Link key={c.id} to={`/busca?category=${c.id}`} className="card category-card">
-                      <span className="category-icon" aria-hidden>
-                        <FolderOpen size={20} />
+                    <button key={c.id} type="button" className="card category-card" onClick={() => setParam({ category: c.id })}>
+                      <strong style={{ display: 'block', fontSize: 16 }}>{c.name}</strong>
+                      {c.description && <span className="small muted" style={{ display: 'block', marginTop: 4 }}>{c.description}</span>}
+                      <span style={{ display: 'block', marginTop: 8, fontSize: 12, fontWeight: 600, color: 'var(--mint)' }}>
+                        {c.articleCount} {c.articleCount === 1 ? 'artigo' : 'artigos'}
                       </span>
-                      <span>
-                        <strong style={{ display: 'block' }}>{c.name}</strong>
-                        {c.description && <span className="small muted">{c.description}</span>}
-                        <span className="tiny muted" style={{ display: 'block', marginTop: 4 }}>
-                          {c.articleCount} {c.articleCount === 1 ? 'artigo' : 'artigos'}
-                        </span>
-                      </span>
-                    </Link>
+                    </button>
                   ))}
                 </div>
               )}
             </section>
-
-            <div className="grid grid-2">
-              <section className="card" aria-labelledby="recent-title">
-                <div className="card-header">
-                  <h2 id="recent-title" className="row" style={{ gap: 8 }}>
-                    <Clock size={18} aria-hidden /> Atualizados recentemente
-                  </h2>
-                </div>
-                {data.recent.length === 0 ? (
-                  <Empty title="Nenhum artigo publicado ainda." />
-                ) : (
-                  <ul className="article-list">
-                    {data.recent.map((a) => (
-                      <li key={a.id}>
-                        <Link to={`/artigos/${a.slug}`}>{a.title}</Link>
-                        <div className="tiny muted">
-                          {a.category ?? 'Sem categoria'} · atualizado em {formatDate(a.updatedAt)}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-              <section className="card" aria-labelledby="pop-title">
-                <div className="card-header">
-                  <h2 id="pop-title" className="row" style={{ gap: 8 }}>
-                    <TrendingUp size={18} aria-hidden /> Mais acessados
-                  </h2>
-                </div>
-                {data.popular.length === 0 ? (
-                  <Empty title="Ainda não há dados de acesso suficientes." />
-                ) : (
-                  <ul className="article-list">
-                    {data.popular.map((a) => (
-                      <li key={a.id}>
-                        <Link to={`/artigos/${a.slug}`}>{a.title}</Link>
-                        <div className="tiny muted">{a.category ?? 'Sem categoria'}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </div>
-
-            <section className="card" aria-labelledby="ann-title">
-              <div className="card-header">
-                <h2 id="ann-title" className="row" style={{ gap: 8 }}>
-                  <Rocket size={18} aria-hidden /> Atualizações
-                </h2>
-                <Link to="/atualizacoes" className="small">
-                  Ver todas <ChevronRight size={14} aria-hidden style={{ verticalAlign: 'middle' }} />
-                </Link>
-              </div>
-              {data.updates.length === 0 ? (
-                <Empty title="Nenhuma atualização publicada." />
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+              {isInternal ? (
+                <>
+                  <ArticleList title="Mais acessados" subtitle="Consolidado de toda a base" items={data.popular} empty="Ainda não há dados de acesso suficientes." />
+                  <ArticleList title="Atualizados recentemente" subtitle="Últimas revisões publicadas" items={data.recent} empty="Nenhum artigo publicado ainda." />
+                </>
               ) : (
-                <ul className="article-list">
-                  {data.updates.map((n) => (
-                    <li key={n.id}>
-                      <Link to={`/atualizacoes/${n.id}`}>{n.title}</Link>
-                      <div className="tiny muted">
-                        Release {n.release} {n.system && `· ${n.system}`} · {formatDate(n.date)}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ArticleList title="Mais acessados por todos os clientes" subtitle="Ranking geral dos últimos 30 dias" items={data.popular} empty="Ainda não há dados de acesso suficientes." />
+                  {user ? (
+                    <ArticleList title="Mais acessados por você" subtitle="Seu histórico de leitura" items={data.mine} empty="Você ainda não leu nenhum artigo." />
+                  ) : (
+                    <ArticleList title="Atualizados recentemente" subtitle="Últimas revisões publicadas" items={data.recent} empty="Nenhum artigo publicado ainda." />
+                  )}
+                </>
               )}
-            </section>
+            </div>
           </div>
         )}
       </div>

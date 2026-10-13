@@ -187,6 +187,13 @@ export default async function articleRoutes(app: FastifyInstance): Promise<void>
     const a = await loadVisibleArticle(req.auth, idOrSlug);
     if (a.status === 'published' && preview !== '1') {
       await query(`UPDATE articles SET view_count = view_count + 1 WHERE id = $1`, [a.id]);
+      if (req.auth) {
+        await query(
+          `INSERT INTO article_reads (user_id, article_id) VALUES ($1, $2)
+           ON CONFLICT (user_id, article_id) DO UPDATE SET read_count = article_reads.read_count + 1, last_read_at = now()`,
+          [req.auth.id, a.id],
+        );
+      }
     }
     const visibilities = allowedVisibilities(req.auth);
     const related = await query(
@@ -506,7 +513,7 @@ export default async function articleRoutes(app: FastifyInstance): Promise<void>
   app.get('/api/home', async (req) => {
     const user = req.auth;
     const vis = anonymousAllowed(user) ? allowedVisibilities(user) : [];
-    const [categories, recent, popular, updates, systems] = await Promise.all([
+    const [categories, recent, popular, updates, systems, mine] = await Promise.all([
       query(
         `SELECT c.id, c.name, c.slug, c.description, c.icon,
                 (SELECT count(*) FROM articles a WHERE a.category_id = c.id AND a.status = 'published' AND a.visibility = ANY($1::text[]))::int AS article_count
@@ -535,12 +542,22 @@ export default async function articleRoutes(app: FastifyInstance): Promise<void>
         [vis],
       ),
       query(`SELECT id, name, slug FROM systems WHERE active ORDER BY name`),
+      user
+        ? query(
+            `SELECT a.id, a.slug, a.title, a.summary, a.updated_at, c.name AS category
+               FROM article_reads r JOIN articles a ON a.id = r.article_id LEFT JOIN categories c ON c.id = a.category_id
+              WHERE r.user_id = $1 AND a.status = 'published' AND a.visibility = ANY($2::text[])
+              ORDER BY r.read_count DESC, r.last_read_at DESC LIMIT 6`,
+            [user.id, vis],
+          )
+        : Promise.resolve([]),
     ]);
     const map = (r: Record<string, unknown>) => ({ id: r.id, slug: r.slug, title: r.title, summary: r.summary, updatedAt: r.updated_at, category: r.category });
     return {
       categories: categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description, icon: c.icon, articleCount: c.article_count })),
       recent: recent.map(map),
       popular: popular.map(map),
+      mine: mine.map(map),
       updates: updates.map((n) => ({ id: n.id, jiraKey: n.jira_key, title: n.title, release: n.release, date: n.completed_at ?? n.published_at, system: n.system })),
       systems,
     };

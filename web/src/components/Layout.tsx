@@ -1,15 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BookOpen,
   ClipboardList,
   FileStack,
   FolderTree,
 
   LayoutDashboard,
   Lock,
-  LogIn,
-  LogOut,
   Megaphone,
   Menu,
   Newspaper,
@@ -17,7 +14,6 @@ import {
   Users,
   Building2,
   Headset,
-  Rocket,
   Handshake,
   KanbanSquare,
 } from 'lucide-react';
@@ -39,25 +35,22 @@ export function AppShell() {
       <header className="app-header">
         <div className="app-header-inner">
           <Link to="/" className="brand" aria-label={`${appName} — página inicial`}>
-            <span className="brand-logo" aria-hidden>
-              <BookOpen size={18} />
-            </span>
+            <img src="/logaz-logo.png" alt="" className="brand-logo-img" />
             <span className="brand-name">{appName}</span>
           </Link>
           <nav className={`main-nav ${open ? 'open' : ''}`} aria-label="Navegação principal" onClick={() => setOpen(false)}>
             <NavLink to="/" end>
               Início
             </NavLink>
-            <NavLink to="/busca">Pesquisar</NavLink>
             <NavLink to="/atualizacoes">Atualizações</NavLink>
-            {isInternal && <NavLink to="/comunicados">Comunicados</NavLink>}
+            <NavLink to="/comunicados">Comunicados</NavLink>
             {user && <NavLink to="/tickets">Meus tickets</NavLink>}
             {isInternal && <NavLink to="/interno">Ambiente interno</NavLink>}
           </nav>
           <div className="header-actions">
             {user ? (
               <>
-                <Link to="/conta" className="small muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }} title={`${user.email} — minha conta`}>
+                <Link to="/conta" className="header-user" title={`${user.email} — minha conta`}>
                   {user.name}
                 </Link>
                 <button
@@ -68,12 +61,12 @@ export function AppShell() {
                     navigate('/');
                   }}
                 >
-                  <LogOut size={16} aria-hidden /> Sair
+                  Sair
                 </button>
               </>
             ) : (
               <Link className="btn btn-sm btn-primary" to={`/entrar?voltar=${encodeURIComponent(location.pathname + location.search)}`}>
-                <LogIn size={16} aria-hidden /> Entrar
+                Entrar
               </Link>
             )}
             <button type="button" className="btn btn-sm btn-icon menu-toggle" aria-label="Abrir menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
@@ -134,16 +127,6 @@ export function InternalLayout() {
             Comunicados
           </SideLink>
         )}
-        {can('updates.manage') && (
-          <SideLink to="/interno/atualizacoes" icon={<Rocket size={18} aria-hidden />}>
-            Atualizações (Jira)
-          </SideLink>
-        )}
-        {can('integrations.view') && (
-          <SideLink to="/interno/integracoes" icon={<Handshake size={18} aria-hidden />}>
-            Integração de Clientes
-          </SideLink>
-        )}
         {can('cards.view') && (
           <SideLink to="/interno/cards" icon={<KanbanSquare size={18} aria-hidden />}>
             Atualizações dos Cards
@@ -154,13 +137,16 @@ export function InternalLayout() {
             Documentos
           </SideLink>
         )}
+        <h2>Atendimento</h2>
+        {can('integrations.view') && (
+          <SideLink to="/interno/integracoes" icon={<Handshake size={18} aria-hidden />}>
+            Integração de Clientes
+          </SideLink>
+        )}
         {(can('tickets.support') || can('tickets.manage')) && (
-          <>
-            <h2>Atendimento</h2>
-            <SideLink to="/interno/tickets" icon={<Headset size={18} aria-hidden />}>
-              Tickets
-            </SideLink>
-          </>
+          <SideLink to="/interno/tickets" icon={<Headset size={18} aria-hidden />}>
+            Tickets
+          </SideLink>
         )}
         <SideLink to="/tickets" icon={<ClipboardList size={18} aria-hidden />}>
           Meus tickets
@@ -199,7 +185,6 @@ export function PageHeader({ title, subtitle, actions, icon }: { title: string; 
     <div className="page-header">
       <div>
         <h1 className="row" style={{ gap: 10 }}>
-          {icon}
           {title}
         </h1>
         {subtitle && <p>{subtitle}</p>}

@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { errorMessage } from '../lib/api';
-import { Alert, Button, Field } from '../components/ui';
 
+/** Tela de entrada (sem cabeçalho global nem assistente), conforme o design Logaz. */
 export function LoginPage() {
   const { login, user, config } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [forgot, setForgot] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const back = params.get('voltar');
@@ -19,12 +21,13 @@ export function LoginPage() {
   if (user) return <Navigate to={target} replace />;
 
   return (
-    <div className="page" style={{ maxWidth: 440 }}>
-      <div className="card card-body">
-        <h1 style={{ fontSize: '1.4rem' }}>Entrar</h1>
-        <p className="muted small">Acesse para acompanhar seus tickets e, se for colaborador, o ambiente interno.</p>
+    <div className="login-page">
+      <img src="/logaz-logo.png" alt={config?.appName ?? 'Logaz'} className="login-logo" />
+      <main className="login-card" id="conteudo">
+        <h1>Entrar na sua conta</h1>
         <form
           className="stack"
+          style={{ gap: 18 }}
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -39,39 +42,52 @@ export function LoginPage() {
             }
           }}
         >
-          <Field label="E-mail" htmlFor="email" required>
-            <input id="email" type="email" className="input" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </Field>
-          <Field label="Senha" htmlFor="password" required>
-            <input id="password" type="password" className="input" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </Field>
-          {error && <Alert kind="danger">{error}</Alert>}
-          <Button type="submit" variant="primary" loading={busy}>
-            <LogIn size={16} aria-hidden /> Entrar
-          </Button>
+          <div className="field">
+            <label htmlFor="email">Login</label>
+            <input id="email" type="email" className="input login-input" placeholder="Digite seu e-mail de acesso" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div className="field">
+            <label htmlFor="password">Senha</label>
+            <div className="login-password">
+              <input id="password" type={show ? 'text' : 'password'} className="input login-input" placeholder="Digite sua senha" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <button type="button" aria-label={show ? 'Ocultar a senha digitada' : 'Exibir a senha digitada'} aria-pressed={show} onClick={() => setShow(!show)}>
+                {show ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+              </button>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <button type="button" className="link-button" onClick={() => setForgot(!forgot)} aria-expanded={forgot}>
+              Esqueceu sua senha?
+            </button>
+          </div>
+          {forgot && (
+            <p role="status" className="banner banner-info">
+              Para redefinir sua senha, entre em contato com o administrador da sua conta.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="banner banner-error">
+              {error}
+            </p>
+          )}
+          <button type="submit" className="login-submit" disabled={busy} aria-busy={busy}>
+            {busy ? 'Entrando…' : 'Entrar'}
+          </button>
         </form>
         {!!config?.testAccounts?.length && (
-          <div className="alert alert-info" style={{ marginTop: 16 }} data-testid="test-accounts">
+          <div className="banner banner-info" style={{ marginTop: 20 }} data-testid="test-accounts">
             <strong>Contas de teste</strong>
             <p className="tiny" style={{ margin: '4px 0 8px' }}>Ambiente de testes — desative em produção.</p>
             <div className="stack" style={{ gap: 6 }}>
               {config.testAccounts.map((a) => (
-                <button
-                  key={a.email}
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => {
-                    setEmail(a.email);
-                    setPassword(a.password);
-                  }}
-                >
+                <button key={a.email} type="button" className="btn btn-sm" onClick={() => { setEmail(a.email); setPassword(a.password); }}>
                   {a.label}: {a.email}
                 </button>
               ))}
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

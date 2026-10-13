@@ -5,7 +5,6 @@ import { get, qs } from '../lib/api';
 import { formatDate } from '../lib/format';
 import type { Taxonomy } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
-import { SearchBox } from './Home';
 import { Empty, Field, Highlighted, HighlightTerms, Pagination, Spinner, VisibilityBadge } from '../components/ui';
 import { openChat } from '../components/ChatWidget';
 
@@ -30,7 +29,8 @@ interface SearchResponse {
   semantic: boolean;
 }
 
-export function SearchPage() {
+/** Resultados da pesquisa exibidos na própria página inicial (parâmetros q, category, system, tag…). */
+export function SearchResults() {
   const [params, setParams] = useSearchParams();
   const { isInternal, can } = useAuth();
   const q = params.get('q') ?? '';
@@ -60,10 +60,7 @@ export function SearchPage() {
 
   const data = search.data;
   return (
-    <div className="page">
-      <div style={{ maxWidth: 820, marginBottom: 20 }}>
-        <SearchBox key={q} initial={q} />
-      </div>
+    <div>
       <div className="search-layout">
         <aside className="card card-body stack" aria-label="Filtros">
           <strong>Filtrar resultados</strong>
@@ -146,7 +143,7 @@ export function SearchPage() {
                     {data.suggestions.map((s, i) => (
                       <span key={s}>
                         {i > 0 && ', '}
-                        <Link to={`/busca?q=${encodeURIComponent(s)}`}>
+                        <Link to={`/?q=${encodeURIComponent(s)}`}>
                           <strong>{s}</strong>
                         </Link>
                       </span>

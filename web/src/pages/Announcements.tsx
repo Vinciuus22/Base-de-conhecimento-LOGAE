@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Eye, EyeOff, Megaphone, Plus, Save } from 'lucide-react';
-import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_CATEGORY_LABELS, type AnnouncementCategory } from '@shared/domain';
+import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_CATEGORY_LABELS, VISIBILITY_LABELS, type AnnouncementCategory } from '@shared/domain';
 import { errorMessage, fieldErrors, get, post, put, qs } from '../lib/api';
 import { formatDate, formatDateTime } from '../lib/format';
 import type { Taxonomy } from '../lib/types';
@@ -17,6 +17,7 @@ interface AnnouncementItem {
   title: string;
   category: AnnouncementCategory;
   status: string;
+  visibility: 'internal' | 'external';
   publishedAt: string | null;
   createdAt: string;
   excerpt: string;
@@ -29,6 +30,7 @@ interface Announcement {
   contentHtml: string;
   category: AnnouncementCategory;
   systems: Array<{ id: string; name: string }>;
+  visibility: 'internal' | 'external';
   status: 'draft' | 'published';
   author: string;
   publishedAt: string | null;
@@ -98,6 +100,7 @@ function AnnouncementList({ manage }: { manage: boolean }) {
                 <span className="badge badge-info">{ANNOUNCEMENT_CATEGORY_LABELS[n.category]}</span>
                 {n.systems.map((s) => <span key={s} className="badge">{s}</span>)}
                 {manage && <StatusBadge status={n.status === 'published' ? 'published' : 'draft'} />}
+                {manage && <span className={`badge ${n.visibility === 'external' ? 'badge-success' : 'badge-info'}`}>{VISIBILITY_LABELS[n.visibility]}</span>}
                 <span>{n.publishedAt ? formatDate(n.publishedAt) : `Criado em ${formatDate(n.createdAt)}`}</span>
               </div>
               <p className="snippet">{n.excerpt}</p>
@@ -111,20 +114,12 @@ function AnnouncementList({ manage }: { manage: boolean }) {
 }
 
 export function AnnouncementsPage() {
-  const { can } = useAuth();
   return (
     <div className="page">
       <PageHeader
         title="Comunicados"
-        subtitle="Avisos internos vinculados às plataformas do sistema."
+        subtitle="Novidades, alterações de funcionalidade, manutenções e avisos vinculados aos sistemas."
         icon={<Megaphone size={24} aria-hidden />}
-        actions={
-          can('announcements.manage') ? (
-            <Link className="btn btn-primary" to="/interno/comunicados/novo">
-              <Plus size={16} aria-hidden /> Novo comunicado
-            </Link>
-          ) : undefined
-        }
       />
       <AnnouncementList manage={false} />
     </div>
@@ -178,7 +173,7 @@ export function AnnouncementsManagePage() {
         title="Comunicados"
         icon={<Megaphone size={24} aria-hidden />}
         actions={
-          <Link className="btn btn-primary" to="/interno/comunicados/novo">
+          <Link className="btn btn-cta" to="/interno/comunicados/novo">
             <Plus size={16} aria-hidden /> Novo comunicado
           </Link>
         }
@@ -195,7 +190,7 @@ export function AnnouncementEditorPage() {
   const queryClient = useQueryClient();
   const taxonomy = useQuery({ queryKey: ['taxonomy'], queryFn: () => get<Taxonomy>('/api/taxonomy') });
   const existing = useQuery({ queryKey: ['announcement', id], queryFn: () => get<{ announcement: Announcement }>(`/api/announcements/${id}`).then((r) => r.announcement), enabled: !!id });
-  const [form, setForm] = useState<null | { title: string; contentHtml: string; category: AnnouncementCategory; systemIds: string[]; relatedArticleIds: string[] }>(null);
+  const [form, setForm] = useState<null | { title: string; contentHtml: string; category: AnnouncementCategory; systemIds: string[]; visibility: 'internal' | 'external'; relatedArticleIds: string[] }>(null);
   const [articleQ, setArticleQ] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -212,8 +207,8 @@ export function AnnouncementEditorPage() {
   const current =
     form ??
     (a
-      ? { title: a.title, contentHtml: a.contentHtml, category: a.category, systemIds: a.systems.map((x) => x.id), relatedArticleIds: a.relatedArticles.map((r) => r.id) }
-      : { title: '', contentHtml: '', category: 'novidade' as AnnouncementCategory, systemIds: [] as string[], relatedArticleIds: [] });
+      ? { title: a.title, contentHtml: a.contentHtml, category: a.category, systemIds: a.systems.map((x) => x.id), visibility: a.visibility, relatedArticleIds: a.relatedArticles.map((r) => r.id) }
+      : { title: '', contentHtml: '', category: 'novidade' as AnnouncementCategory, systemIds: [] as string[], visibility: 'internal' as const, relatedArticleIds: [] });
   const titles: Record<string, string> = { ...Object.fromEntries((a?.relatedArticles ?? []).map((r) => [r.id, r.title])), ...relatedTitles };
   const update = (patch: Partial<typeof current>) => setForm({ ...current, ...patch });
 
@@ -257,6 +252,15 @@ export function AnnouncementEditorPage() {
         <div className="grid grid-2">
           <Field label="Título" htmlFor="ae-title" required error={errors.title}>
             <input id="ae-title" className="input" value={current.title} onChange={(e) => update({ title: e.target.value })} />
+          </Field>
+          <Field label="Visibilidade" required error={errors.visibility} hint="Externo: clientes e visitantes também veem. Interno: somente a equipe.">
+            <div className="segmented" role="group" aria-label="Visibilidade">
+              {(['internal', 'external'] as const).map((v) => (
+                <button key={v} type="button" aria-pressed={current.visibility === v} onClick={() => update({ visibility: v })}>
+                  {VISIBILITY_LABELS[v]}
+                </button>
+              ))}
+            </div>
           </Field>
           <Field label="Categoria" htmlFor="ae-cat" required>
             <select id="ae-cat" className="select" value={current.category} onChange={(e) => update({ category: e.target.value as AnnouncementCategory })}>

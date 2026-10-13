@@ -14,15 +14,13 @@ const SELECT = `
   SELECT u.id, u.jira_key, u.jira_url, u.title, u.description_text, u.release, u.audience_raw, u.visibility, u.status,
          u.manual_override, u.jira_status, u.completed_at, u.published_at, u.updated_at, s.id AS system_id, s.name AS system_name`;
 
-function serialize(r: Record<string, unknown>, manage: boolean) {
+function serialize(r: Record<string, unknown>, manage: boolean, internal = manage) {
   return {
     id: r.id,
-    jiraKey: r.jira_key,
-    jiraUrl: r.jira_url,
+    ...(internal ? { jiraKey: r.jira_key, jiraUrl: r.jira_url, visibility: r.visibility } : {}),
     title: r.title,
     description: r.description_text,
     release: r.release,
-    visibility: r.visibility,
     system: r.system_id ? { id: r.system_id, name: r.system_name } : null,
     completedAt: r.completed_at,
     publishedAt: r.published_at,
@@ -122,7 +120,7 @@ export default async function updatesRoutes(app: FastifyInstance): Promise<void>
       `SELECT DISTINCT release FROM updates u ${manage ? '' : `WHERE u.status = 'published' AND u.visibility = ANY($1::text[])`} ORDER BY release DESC LIMIT 100`,
       manage ? [] : [allowedVisibilities(user)],
     );
-    return { total: Number(total?.n ?? 0), items: rows.map((r) => serialize(r, manage)), releases: releases.map((r) => r.release) };
+    return { total: Number(total?.n ?? 0), items: rows.map((r) => serialize(r, manage, user?.userType === 'internal')), releases: releases.map((r) => r.release) };
   });
 
   app.get('/api/updates/integration', async (req) => {
@@ -148,7 +146,7 @@ export default async function updatesRoutes(app: FastifyInstance): Promise<void>
     const visible =
       !!r && (manage || (r.status === 'published' && allowedVisibilities(user).includes(r.visibility as 'internal') && anonymousAllowed(user)));
     if (!r || !visible) throw notFound('Atualização não encontrada.');
-    return { update: serialize(r, manage) };
+    return { update: serialize(r, manage, user?.userType === 'internal') };
   });
 
   // -------------------------------------------------------------------------

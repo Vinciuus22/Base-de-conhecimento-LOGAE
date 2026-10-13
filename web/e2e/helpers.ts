@@ -11,8 +11,8 @@ export const USERS = {
 
 export async function login(page: Page, user: { email: string; password: string }) {
   await page.goto('/entrar');
-  await page.getByLabel('E-mail').fill(user.email);
-  await page.getByLabel('Senha').fill(user.password);
+  await page.getByLabel('Login').fill(user.email);
+  await page.getByLabel('Senha', { exact: true }).fill(user.password);
   await page.getByRole('button', { name: 'Entrar' }).last().click();
   await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
 }

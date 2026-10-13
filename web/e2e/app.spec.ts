@@ -9,7 +9,7 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
   test('pesquisa pública com destaque e artigo com vídeo em player ampliado', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel('Pesquisar na Base de Conhecimento').fill('erro ao exportar relatório');
-    await page.getByRole('button', { name: 'Pesquisar' }).click();
+    await expect(page).toHaveURL(/q=/);
     await expect(page.getByRole('link', { name: /Como exportar relatórios/ })).toBeVisible();
     await expect(page.locator('mark.hl').first()).toBeVisible();
     await page.getByRole('link', { name: /Como exportar relatórios/ }).first().click();
@@ -144,14 +144,15 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     const ext = await newSession(browser, { email: 'externo@teste.com', password: 'Teste@12345' });
     await ext.page.goto('/atualizacoes');
     await expect(ext.page.getByRole('heading', { name: 'Atualizações' }).first()).toBeVisible();
-    await expect(ext.page.getByRole('link', { name: 'Comunicados' })).toHaveCount(0);
+    await expect(ext.page.getByRole('link', { name: 'Comunicados' })).toBeVisible();
+    await expect(ext.page.getByRole('link', { name: 'Novo comunicado' })).toHaveCount(0);
     await expect(ext.page.getByRole('link', { name: /Gerenciar integração/ })).toHaveCount(0);
-    await ext.page.goto('/comunicados');
+    await ext.page.goto('/interno/comunicados');
     await expect(ext.page.getByText('Acesso não autorizado')).toBeVisible();
     await ext.context.close();
 
     const int = await newSession(browser, { email: 'interno@teste.com', password: 'Teste@12345' });
-    await int.page.goto('/comunicados');
+    await int.page.goto('/interno/comunicados');
     await expect(int.page.getByRole('link', { name: 'Novo comunicado' })).toBeVisible();
     await int.page.goto('/interno/atualizacoes');
     await expect(int.page.getByRole('heading', { name: 'Atualizações (Jira)' })).toBeVisible();
@@ -266,7 +267,7 @@ test.describe('Base de Conhecimento — fluxos principais', () => {
     await page.goto('/interno/integracoes');
     await page.getByLabel('Pesquisar').fill(objective);
     await expect(page.getByTestId('integration-card')).toHaveCount(1);
-    await expect(page.getByTestId('integration-stats')).toContainText('Acompanhamento');
+    await expect(page.getByTestId('integration-stats')).toContainText('Em acompanhamento');
     await context.close();
 
     // externo não acessa

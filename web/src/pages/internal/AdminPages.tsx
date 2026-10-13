@@ -25,21 +25,18 @@ export function DashboardPage() {
   const cards = [
     { show: can('articles.create') || can('articles.edit_others'), to: '/interno/artigos/novo', icon: <Plus size={20} />, title: 'Novo artigo', text: 'Criar um artigo ou procedimento' },
     { show: true, to: '/interno/artigos', icon: <Newspaper size={20} />, title: 'Artigos', text: 'Gerenciar artigos e rascunhos' },
-    { show: can('tickets.support') || can('tickets.manage'), to: '/interno/tickets', icon: <Headset size={20} />, title: 'Atendimento', text: 'Fila de tickets autorizados' },
-    { show: can('announcements.manage'), to: '/interno/comunicados', icon: <Megaphone size={20} />, title: 'Comunicados', text: 'Atualizações e avisos' },
-    { show: can('documents.manage'), to: '/interno/documentos', icon: <FileStack size={20} />, title: 'Documentos', text: 'Importar PDF e Word' },
+    { show: can('tickets.support') || can('tickets.manage'), to: '/interno/tickets', icon: <Headset size={20} />, title: 'Atendimento', text: 'Fila de tickets do suporte' },
+    { show: can('announcements.manage'), to: '/interno/comunicados', icon: <Megaphone size={20} />, title: 'Comunicados', text: 'Criar e publicar avisos' },
+    { show: can('documents.manage'), to: '/interno/documentos', icon: <FileStack size={20} />, title: 'Documentos', text: 'Requisições, APIs e PDFs' },
     { show: can('audit.view'), to: '/interno/auditoria', icon: <ShieldCheck size={20} />, title: 'Auditoria', text: 'Registros de operações' },
   ].filter((c) => c.show);
   const counts = tickets.data?.counts ?? {};
   return (
     <div className="page">
-      <PageHeader title={`Olá, ${user?.name.split(' ')[0]}`} subtitle="Ambiente interno da Base de Conhecimento." icon={<LayoutDashboard size={24} aria-hidden />} />
-      <div className="grid grid-3">
+      <PageHeader title={`Olá, ${user?.name.split(' ')[0]}`} subtitle="Ambiente interno da Base de Conhecimento." />
+      <div className="grid grid-2">
         {cards.map((c) => (
           <Link key={c.to} to={c.to} className="card category-card">
-            <span className="category-icon" aria-hidden>
-              {c.icon}
-            </span>
             <span>
               <strong style={{ display: 'block' }}>{c.title}</strong>
               <span className="small muted">{c.text}</span>
@@ -101,6 +98,72 @@ interface ArticleRowItem {
   lock: { holder: string; acquiredAt: string } | null;
 }
 
+function ArticleGroups({ items, total }: { items: ArticleRowItem[]; total: number }) {
+  const groups = new Map<string, ArticleRowItem[]>();
+  for (const a of items) {
+    const k = a.category ?? 'Sem categoria';
+    groups.set(k, [...(groups.get(k) ?? []), a]);
+  }
+  return (
+    <>
+      <p className="small muted" data-testid="article-count">
+        {total} {total === 1 ? 'artigo' : 'artigos'} em {groups.size} {groups.size === 1 ? 'categoria' : 'categorias'}
+        {total > items.length && ` (exibindo os ${items.length} mais recentes — refine os filtros)`}
+      </p>
+      <div className="stack" style={{ gap: 20 }}>
+        {[...groups.entries()].map(([name, rows]) => (
+          <section key={name} className="card" aria-label={name}>
+            <div className="group-head">
+              <h2>{name}</h2>
+              <span className="pill">{rows.length} {rows.length === 1 ? 'artigo' : 'artigos'}</span>
+            </div>
+            <div className="table-wrap" style={{ border: 0 }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Status</th>
+                    <th>Visibilidade</th>
+                    <th>Sistema</th>
+                    <th>Autor</th>
+                    <th>Versão</th>
+                    <th>Atualização</th>
+                    <th>Edição</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((a) => (
+                    <tr key={a.id}>
+                      <td>
+                        <Link to={`/artigos/${a.slug}`}>{a.title}</Link>
+                      </td>
+                      <td><StatusBadge status={a.status} /></td>
+                      <td><VisibilityBadge visibility={a.visibility} /></td>
+                      <td>{a.system ?? '—'}</td>
+                      <td>{a.author}</td>
+                      <td>v{a.version}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{relativeTime(a.updatedAt)}</td>
+                      <td>
+                        {a.lock ? (
+                          <span className="badge badge-warning" title={`Desde ${formatDateTime(a.lock.acquiredAt)}`}>
+                            {a.lock.holder}
+                          </span>
+                        ) : (
+                          <span className="badge">Disponível</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function ArticlesListPage() {
   const { can } = useAuth();
   const [params, setParams] = useSearchParams();
@@ -115,7 +178,7 @@ export function ArticlesListPage() {
     page: Number(params.get('page') ?? 1),
   };
   const taxonomy = useQuery({ queryKey: ['taxonomy'], queryFn: () => get<Taxonomy>('/api/taxonomy') });
-  const list = useQuery({ queryKey: ['articles', f], queryFn: () => get<{ total: number; items: ArticleRowItem[] }>(`/api/articles${qs({ ...f, pageSize: 20 })}`), refetchInterval: 20_000 });
+  const list = useQuery({ queryKey: ['articles', f], queryFn: () => get<{ total: number; items: ArticleRowItem[] }>(`/api/articles${qs({ ...f, page: 1, pageSize: 100 })}`), refetchInterval: 20_000 });
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
@@ -127,10 +190,10 @@ export function ArticlesListPage() {
     <div className="page">
       <PageHeader
         title="Artigos"
-        icon={<Newspaper size={24} aria-hidden />}
+        subtitle="Todos os artigos cadastrados, agrupados por categoria."
         actions={
           can('articles.create') && (
-            <Link className="btn btn-primary" to="/interno/artigos/novo">
+            <Link className="btn btn-cta" to="/interno/artigos/novo">
               <Plus size={16} aria-hidden /> Novo artigo
             </Link>
           )
@@ -158,10 +221,10 @@ export function ArticlesListPage() {
               <option value="external">Externo</option>
             </select>
           </Field>
-          <Field label="Categoria" htmlFor="al-cat">
-            <select id="al-cat" className="select" value={f.category} onChange={(e) => set('category', e.target.value)}>
-              <option value="">Todas</option>
-              {taxonomy.data?.categories.map((c) => (
+          <Field label="Sistema" htmlFor="al-sys">
+            <select id="al-sys" className="select" value={f.system} onChange={(e) => set('system', e.target.value)}>
+              <option value="">Todos</option>
+              {taxonomy.data?.systems.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -180,52 +243,8 @@ export function ArticlesListPage() {
           <Empty title="Nenhum artigo encontrado." />
         </div>
       ) : (
-        <div className="card table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Título</th>
-                <th>Status</th>
-                <th>Visibilidade</th>
-                <th>Categoria</th>
-                <th>Autor</th>
-                <th>Versão</th>
-                <th>Atualização</th>
-                <th>Edição</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.map((a) => (
-                <tr key={a.id}>
-                  <td>
-                    <Link to={`/artigos/${a.slug}`}>{a.title}</Link>
-                  </td>
-                  <td>
-                    <StatusBadge status={a.status} />
-                  </td>
-                  <td>
-                    <VisibilityBadge visibility={a.visibility} />
-                  </td>
-                  <td>{a.category ?? '—'}</td>
-                  <td>{a.author}</td>
-                  <td>v{a.version}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{relativeTime(a.updatedAt)}</td>
-                  <td>
-                    {a.lock ? (
-                      <span className="badge badge-warning" title={`Desde ${formatDateTime(a.lock.acquiredAt)}`}>
-                        <Lock size={12} aria-hidden /> {a.lock.holder}
-                      </span>
-                    ) : (
-                      <span className="tiny muted">Disponível</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ArticleGroups items={list.data.items} total={list.data.total} />
       )}
-      {list.data && <Pagination page={f.page} pageSize={20} total={list.data.total} onChange={(p) => set('page', String(p))} />}
     </div>
   );
 }
@@ -312,16 +331,47 @@ export function LocksPage() {
   );
 }
 
+interface AuditChange { field: string; before: string | null; after: string | null }
+interface AuditItem { id: number; action: string; entityType: string | null; entityId: string | null; data: Record<string, unknown> | null; ip: string | null; createdAt: string; screen: string; actor: { id: string; name: string } | null }
+
+/** Extrai alterações de campo do registro (changes[], before/after ou statusFrom/statusTo). */
+function auditChanges(data: Record<string, unknown> | null): AuditChange[] {
+  if (!data) return [];
+  const str = (v: unknown) => (v === null || v === undefined ? null : typeof v === 'string' ? v : JSON.stringify(v));
+  if (Array.isArray(data.changes)) return (data.changes as AuditChange[]).filter((c) => c && typeof c.field === 'string');
+  const b = data.before as Record<string, unknown> | undefined;
+  const a = data.after as Record<string, unknown> | undefined;
+  if (b && a && typeof b === 'object' && typeof a === 'object') {
+    return [...new Set([...Object.keys(b), ...Object.keys(a)])].filter((k) => str(b[k]) !== str(a[k])).map((k) => ({ field: k, before: str(b[k]), after: str(a[k]) }));
+  }
+  if ('statusFrom' in data || 'statusTo' in data) return [{ field: 'Status', before: str(data.statusFrom), after: str(data.statusTo) }];
+  return [];
+}
+
+function Value({ v, kind }: { v: string | null; kind: 'before' | 'after' }) {
+  const [open, setOpen] = useState(false);
+  const long = (v?.length ?? 0) > 90;
+  return (
+    <div className={kind === 'before' ? 'diff-before' : 'diff-after'}>
+      <span className="tiny">{kind === 'before' ? 'Antes:' : 'Depois:'}</span>{' '}
+      {v === null || v === '' ? <em>— (em branco)</em> : <span style={{ whiteSpace: 'pre-wrap' }}>{open || !long ? v : `${v.slice(0, 90)}…`}</span>}
+      {long && (
+        <button type="button" className="link-button" style={{ marginLeft: 6 }} aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? 'Recolher' : 'Expandir valores completos'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function AuditPage() {
-  const [f, setF] = useState({ action: '', entityType: '', from: '', to: '' });
+  const [f, setF] = useState({ q: '', screen: '', actor: '', from: '' });
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<number | null>(null);
   const list = useQuery({
     queryKey: ['audit', f, page],
-    queryFn: () =>
-      get<{ total: number; items: Array<{ id: number; action: string; entityType: string | null; entityId: string | null; data: unknown; ip: string | null; createdAt: string; actor: { name: string } | null }> }>(
-        `/api/audit${qs({ ...f, page, pageSize: 30 })}`,
-      ),
+    queryFn: () => get<{ total: number; items: AuditItem[]; facets: { screens: string[]; actors: Array<{ id: string; name: string }> } }>(`/api/audit${qs({ ...f, page, pageSize: 30 })}`),
+    placeholderData: (p) => p,
   });
   const set = (k: keyof typeof f, v: string) => {
     setF((x) => ({ ...x, [k]: v }));
@@ -329,27 +379,26 @@ export function AuditPage() {
   };
   return (
     <div className="page">
-      <PageHeader title="Auditoria" subtitle="Registros imutáveis das operações relevantes (somente leitura)." icon={<ShieldCheck size={24} aria-hidden />} />
-      <div className="card card-body" style={{ marginBottom: 16 }}>
+      <PageHeader title="Auditoria" subtitle="Tudo que foi alterado em todas as telas do sistema, com data, hora e responsável. Registros imutáveis." />
+      <div className="card card-body" style={{ marginBottom: 20 }}>
         <div className="grid grid-4">
-          <Field label="Ação (prefixo)" htmlFor="au-a" hint="Ex.: article., permission., ticket., auth.">
-            <input id="au-a" className="input" value={f.action} onChange={(e) => set('action', e.target.value)} />
+          <Field label="Pesquisar" htmlFor="au-q">
+            <input id="au-q" className="input" placeholder="Ação, item ou responsável" value={f.q} onChange={(e) => set('q', e.target.value)} />
           </Field>
-          <Field label="Entidade" htmlFor="au-e">
-            <select id="au-e" className="select" value={f.entityType} onChange={(e) => set('entityType', e.target.value)}>
+          <Field label="Tela" htmlFor="au-s">
+            <select id="au-s" className="select" value={f.screen} onChange={(e) => set('screen', e.target.value)}>
               <option value="">Todas</option>
-              {['article', 'user', 'ticket', 'document', 'file', 'category', 'system', 'announcement', 'company'].map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
+              {list.data?.facets.screens.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Responsável" htmlFor="au-a">
+            <select id="au-a" className="select" value={f.actor} onChange={(e) => set('actor', e.target.value)}>
+              <option value="">Todos</option>
+              {list.data?.facets.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </Field>
           <Field label="De" htmlFor="au-f">
             <input id="au-f" type="date" className="input" value={f.from} onChange={(e) => set('from', e.target.value)} />
-          </Field>
-          <Field label="Até" htmlFor="au-t">
-            <input id="au-t" type="date" className="input" value={f.to} onChange={(e) => set('to', e.target.value)} />
           </Field>
         </div>
       </div>
@@ -357,37 +406,56 @@ export function AuditPage() {
         <Spinner />
       ) : (
         <div className="card table-wrap">
-          <table className="table">
+          <table className="table" data-testid="audit-table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
                 <th>Data e hora</th>
                 <th>Responsável</th>
+                <th>Tela</th>
                 <th>Ação</th>
-                <th>Entidade</th>
+                <th>Item</th>
                 <th>IP</th>
-                <th>Detalhes</th>
+                <th>O que mudou</th>
               </tr>
             </thead>
             <tbody>
-              {list.data?.items.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</td>
-                  <td>{r.actor?.name ?? 'Sistema'}</td>
-                  <td>
-                    <code>{r.action}</code>
-                  </td>
-                  <td className="small">
-                    {r.entityType} {r.entityId && <span className="muted">{r.entityId.slice(0, 8)}…</span>}
-                  </td>
-                  <td className="small">{r.ip ?? '—'}</td>
-                  <td>
-                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id}>
-                      {open === r.id ? 'Ocultar' : 'Ver'}
-                    </button>
-                    {open === r.id && <pre className="diff tiny" style={{ maxWidth: 420 }}>{JSON.stringify(r.data, null, 2)}</pre>}
-                  </td>
-                </tr>
-              ))}
+              {list.data?.items.map((r) => {
+                const changes = auditChanges(r.data);
+                return (
+                  <tr key={r.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</td>
+                    <td>{r.actor?.name ?? 'Sistema'}</td>
+                    <td><span className="badge badge-info">{r.screen}</span></td>
+                    <td><code className="action-code">{r.action}</code></td>
+                    <td className="small">
+                      {r.entityType ?? '—'} {r.entityId && <span className="muted">{r.entityId.slice(0, 8)}…</span>}
+                    </td>
+                    <td className="small">{r.ip ?? '—'}</td>
+                    <td style={{ minWidth: 260 }}>
+                      {changes.length ? (
+                        <>
+                          <button type="button" className="btn btn-sm" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id}>
+                            {open === r.id ? 'Ocultar alterações' : 'Ver alterações'}
+                          </button>
+                          {open === r.id && (
+                            <div className="stack" style={{ marginTop: 8, gap: 8 }}>
+                              {changes.map((c, i) => (
+                                <div key={i}>
+                                  <strong className="small">{c.field}</strong>
+                                  <Value v={c.before} kind="before" />
+                                  <Value v={c.after} kind="after" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="small muted">Sem alteração de campo</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

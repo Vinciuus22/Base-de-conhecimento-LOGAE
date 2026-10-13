@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { closePool, getPool, query, queryOne } from '../src/db/pool.js';
-import { createArticleVia, createCategory, createSystem, getApp, loginAs, publishVia, uid, type Session } from './helpers.js';
+import { anonymous, createArticleVia, createCategory, createSystem, getApp, loginAs, publishVia, uid, type Session } from './helpers.js';
 
 const RICH_HTML = `
 <h2 style="text-align: center">Seção principal</h2>
@@ -264,5 +264,22 @@ describe('Taxonomia e página inicial', () => {
     expect(home.recent.map((r: { id: string }) => r.id)).not.toContain(a.id);
     const homeInternal = (await admin.request('GET', '/api/home')).json();
     expect(homeInternal.recent.map((r: { id: string }) => r.id)).toContain(a.id);
+  });
+});
+
+describe('Histórico de leitura por usuário', () => {
+  it('registra leituras do usuário logado e devolve "mais acessados por você" na home', async () => {
+    const author = await loginAs({ roles: ['admin'] });
+    const art = await createArticleVia(author, { visibility: 'external' });
+    await publishVia(author, art.id);
+    const reader = await loginAs({ type: 'external' });
+    expect((await reader.request('GET', '/api/home')).json().mine).toEqual([]);
+    await reader.request('GET', `/api/articles/${art.slug}`);
+    await reader.request('GET', `/api/articles/${art.slug}`);
+    const mine = (await reader.request('GET', '/api/home')).json().mine;
+    expect(mine.map((m: { id: string }) => m.id)).toContain(art.id);
+    expect((await (await anonymous()).request('GET', '/api/home')).json().mine).toEqual([]);
+    const other = await loginAs({ type: 'external' });
+    expect((await other.request('GET', '/api/home')).json().mine).toEqual([]);
   });
 });

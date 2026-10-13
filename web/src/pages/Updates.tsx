@@ -11,12 +11,12 @@ import { Alert, Button, Empty, Field, Pagination, Spinner, useToast } from '../c
 
 export interface UpdateItem {
   id: string;
-  jiraKey: string;
-  jiraUrl: string | null;
+  jiraKey?: string;
+  jiraUrl?: string | null;
   title: string;
   description: string;
   release: string;
-  visibility: 'internal' | 'external';
+  visibility?: 'internal' | 'external';
   system: { id: string; name: string } | null;
   completedAt: string | null;
   publishedAt: string | null;
@@ -42,12 +42,13 @@ interface Integration {
   webhookPath: string;
 }
 
-const AUDIENCE_LABEL = { internal: 'Interno', external: 'Clientes' } as const;
+const AUDIENCE_LABEL = { internal: 'Interno', external: 'Externo' } as const;
 
 function UpdateList({ manage }: { manage: boolean }) {
   const [f, setF] = useState({ q: '', system: '', release: '', from: '', to: '' });
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
+  const { isInternal } = useAuth();
   const toast = useToast();
   const taxonomy = useQuery({ queryKey: ['taxonomy'], queryFn: () => get<Taxonomy>('/api/taxonomy') });
   const list = useQuery({
@@ -121,17 +122,19 @@ function UpdateList({ manage }: { manage: boolean }) {
                 <Link to={`/atualizacoes/${n.id}`}>{n.title}</Link>
               </h3>
               <div className="result-meta">
-                <span className="badge badge-info">
-                  <Rocket size={12} aria-hidden /> Release {n.release}
-                </span>
+                <span className="badge badge-success">Release {n.release}</span>
                 {n.system && <span className="badge">{n.system.name}</span>}
-                {manage && <span className="badge">{n.jiraKey}</span>}
-                {manage && <span className="badge">{AUDIENCE_LABEL[n.visibility]}</span>}
+                {n.visibility && <span className={`badge ${n.visibility === 'external' ? 'badge-success' : 'badge-info'}`}>{AUDIENCE_LABEL[n.visibility]}</span>}
                 {manage && n.status === 'hidden' && <span className="badge badge-warning">Oculta</span>}
                 {manage && n.manualOverride && <span className="badge badge-warning">Ajuste manual</span>}
                 <span>{formatDate(n.completedAt ?? n.publishedAt)}</span>
               </div>
               <p className="snippet">{n.description.slice(0, 240)}</p>
+              {isInternal && n.jiraUrl && (
+                <a className="small" href={n.jiraUrl} target="_blank" rel="noreferrer noopener">
+                  Card {n.jiraKey} — {n.jiraUrl}
+                </a>
+              )}
               {manage && (
                 <div className="btn-group" style={{ marginTop: 8 }}>
                   <Button size="sm" onClick={() => change.mutate({ id: n.id, body: { status: n.status === 'hidden' ? 'published' : 'hidden' } })}>
@@ -195,10 +198,10 @@ export function UpdateViewPage() {
       </Link>
       <h1 style={{ marginTop: 8 }}>{data.title}</h1>
       <div className="result-meta" style={{ marginBottom: 16 }}>
-        <span className="badge badge-info">Release {data.release}</span>
+        <span className="badge badge-success">Release {data.release}</span>
         {data.system && <span className="badge">{data.system.name}</span>}
         <span>Concluída em {formatDateTime(data.completedAt ?? data.publishedAt)}</span>
-        {data.jiraUrl && data.status !== undefined && (
+        {data.jiraUrl && (
           <a href={data.jiraUrl} target="_blank" rel="noreferrer noopener">
             {data.jiraKey} <ExternalLink size={12} aria-hidden />
           </a>

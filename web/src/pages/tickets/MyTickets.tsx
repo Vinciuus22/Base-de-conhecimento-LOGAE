@@ -1,41 +1,45 @@
-import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Plus } from 'lucide-react';
-import { TICKET_STATUSES, TICKET_STATUS_LABELS } from '@shared/domain';
-import { get, qs } from '../../lib/api';
-import { formatDateTime } from '../../lib/format';
+import { get } from '../../lib/api';
+import { formatDate, formatDateTime } from '../../lib/format';
 import type { TicketSummary } from '../../lib/types';
 import { useAuth } from '../../context/AuthContext';
 import { PageHeader } from '../../components/Layout';
-import { Alert, Empty, Field, Pagination, Spinner, StatusBadge } from '../../components/ui';
+import { Alert, Empty, Spinner, StatusBadge } from '../../components/ui';
 
-/** “Meus tickets”: todos os tickets do usuário, inclusive resolvidos e fechados. */
+const FINISHED = new Set(['resolved', 'closed']);
+const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+function TicketLink({ t }: { t: TicketSummary }) {
+  return (
+    <Link to={`/tickets/${t.id}`} style={{ fontWeight: 500 }}>
+      {t.title}
+    </Link>
+  );
+}
+
+/** “Meus tickets”: indicadores, pendentes/em aberto e finalizados (com busca própria). */
 export function MyTicketsPage() {
   const { user } = useAuth();
-  const [params, setParams] = useSearchParams();
-  const [text, setText] = useState(params.get('q') ?? '');
-  const filters = {
-    q: params.get('q') ?? '',
-    status: params.get('status') ?? '',
-    from: params.get('from') ?? '',
-    to: params.get('to') ?? '',
-    sort: params.get('sort') ?? 'updated_desc',
-    scope: params.get('scope') ?? 'mine',
-    page: Number(params.get('page') ?? 1),
-  };
+  const [scope, setScope] = useState<'mine' | 'company'>('mine');
+  const [closedQuery, setClosedQuery] = useState('');
   const list = useQuery({
-    queryKey: ['my-tickets', filters],
-    queryFn: () => get<{ total: number; canViewCompany: boolean; items: TicketSummary[] }>(`/api/tickets/mine${qs({ ...filters, pageSize: 15 })}`),
+    queryKey: ['my-tickets', scope],
+    queryFn: () => get<{ total: number; canViewCompany: boolean; items: TicketSummary[] }>(`/api/tickets/mine?pageSize=100&scope=${scope}&sort=updated_desc`),
     enabled: !!user,
   });
-  const set = (k: string, v: string) => {
-    const next = new URLSearchParams(params);
-    if (v) next.set(k, v);
-    else next.delete(k);
-    if (k !== 'page') next.delete('page');
-    setParams(next);
-  };
+  const items = list.data?.items ?? [];
+  const { open, finished, waitingUser, inService } = useMemo(() => {
+    const open = items.filter((t) => !FINISHED.has(t.status));
+    return {
+      open,
+      finished: items.filter((t) => FINISHED.has(t.status)),
+      waitingUser: open.filter((t) => t.status === 'waiting_user').length,
+      inService: open.filter((t) => t.status === 'in_progress').length,
+    };
+  }, [items]);
+  const closedShown = finished.filter((t) => !closedQuery.trim() || norm(`${t.protocol} ${t.title} ${t.system}`).includes(norm(closedQuery.trim())));
 
   if (!user) {
     return (
@@ -51,118 +55,122 @@ export function MyTicketsPage() {
     <div className="page">
       <PageHeader
         title="Meus tickets"
-        subtitle="Acompanhe todos os seus atendimentos, inclusive os já resolvidos e fechados."
-        icon={<ClipboardList size={24} aria-hidden />}
+        subtitle="Seus atendimentos: pendentes e em aberto primeiro, finalizados na busca abaixo."
         actions={
-          <Link className="btn btn-primary" to="/tickets/novo">
-            <Plus size={16} aria-hidden /> Abrir ticket
+          <Link className="btn btn-cta" to="/tickets/novo">
+            Abrir ticket
           </Link>
         }
       />
-      <div className="card card-body" style={{ marginBottom: 16 }}>
-        <form
-          className="grid grid-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            set('q', text.trim());
-          }}
-        >
-          <Field label="Protocolo ou título" htmlFor="mt-q">
-            <input id="mt-q" className="input" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => set('q', text.trim())} placeholder="Pesquisar…" />
-          </Field>
-          <Field label="Status" htmlFor="mt-status">
-            <select id="mt-status" className="select" value={filters.status} onChange={(e) => set('status', e.target.value)}>
-              <option value="">Todos</option>
-              {TICKET_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {TICKET_STATUS_LABELS[s]}
-                </option>
-              ))}
+      {list.data?.canViewCompany && (
+        <div className="row" style={{ marginBottom: 12 }}>
+          <label className="row" style={{ gap: 8 }}>
+            Exibir
+            <select className="select" style={{ width: 'auto' }} value={scope} onChange={(e) => setScope(e.target.value as 'mine' | 'company')}>
+              <option value="mine">Meus tickets</option>
+              <option value="company">Tickets da minha empresa</option>
             </select>
-          </Field>
-          <Field label="Abertos a partir de" htmlFor="mt-from">
-            <input id="mt-from" type="date" className="input" value={filters.from} onChange={(e) => set('from', e.target.value)} />
-          </Field>
-          <Field label="Até" htmlFor="mt-to">
-            <input id="mt-to" type="date" className="input" value={filters.to} onChange={(e) => set('to', e.target.value)} />
-          </Field>
-          <Field label="Ordenar por" htmlFor="mt-sort">
-            <select id="mt-sort" className="select" value={filters.sort} onChange={(e) => set('sort', e.target.value)}>
-              <option value="updated_desc">Atualização mais recente</option>
-              <option value="updated_asc">Atualização mais antiga</option>
-              <option value="created_desc">Abertura mais recente</option>
-              <option value="created_asc">Abertura mais antiga</option>
-              <option value="status">Status</option>
-            </select>
-          </Field>
-          {list.data?.canViewCompany && (
-            <Field label="Exibir" htmlFor="mt-scope">
-              <select id="mt-scope" className="select" value={filters.scope} onChange={(e) => set('scope', e.target.value)}>
-                <option value="mine">Meus tickets</option>
-                <option value="company">Tickets da minha empresa</option>
-              </select>
-            </Field>
-          )}
-        </form>
+          </label>
+        </div>
+      )}
+      <div className="stat-grid" data-testid="ticket-stats">
+        <div className="stat-card" style={{ ['--accent' as string]: '#0787e8' }}><strong>{open.length}</strong><span>Em aberto</span></div>
+        <div className="stat-card" style={{ ['--accent' as string]: '#d89a12' }}><strong>{waitingUser}</strong><span>Aguardando você</span></div>
+        <div className="stat-card" style={{ ['--accent' as string]: '#19b987' }}><strong>{inService}</strong><span>Em atendimento</span></div>
+        <div className="stat-card" style={{ ['--accent' as string]: '#6a6a6a' }}><strong>{finished.length}</strong><span>Finalizados</span></div>
       </div>
 
       {list.isLoading ? (
         <Spinner />
-      ) : !list.data || list.data.items.length === 0 ? (
-        <div className="card">
-          <Empty title="Nenhum ticket encontrado.">
-            <Link to="/tickets/novo" className="btn btn-primary" style={{ marginTop: 8 }}>
-              Abrir ticket
-            </Link>
-          </Empty>
-        </div>
       ) : (
-        <div className="card table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Protocolo</th>
-                <th>Título</th>
-                <th>Sistema</th>
-                {filters.scope === 'company' && <th>Solicitante</th>}
-                <th>Empresa</th>
-                <th>Abertura</th>
-                <th>Última atualização</th>
-                <th>Status</th>
-                <th>Prioridade</th>
-                <th>Responsável</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.items.map((t) => (
-                <tr key={t.id}>
-                  <td>
-                    <Link to={`/tickets/${t.id}`}>{t.protocol}</Link>
-                  </td>
-                  <td>
-                    <Link to={`/tickets/${t.id}`} style={{ fontWeight: 500 }}>
-                      {t.title}
-                    </Link>
-                  </td>
-                  <td>{t.system}</td>
-                  {filters.scope === 'company' && <td>{t.requester}</td>}
-                  <td>{t.company}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(t.createdAt)}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(t.updatedAt)}</td>
-                  <td>
-                    <StatusBadge status={t.status} />
-                  </td>
-                  <td>
-                    <StatusBadge status={t.priority} />
-                  </td>
-                  <td>{t.assignee ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="stack" style={{ gap: 24 }}>
+          <section className="card" aria-labelledby="mt-open">
+            <div className="section-card-title">
+              <h2 id="mt-open">Pendentes e em aberto</h2>
+              <p>Tickets que ainda aguardam alguma ação.</p>
+            </div>
+            {open.length === 0 ? (
+              <Empty title="Nenhum ticket em aberto.">
+                <Link to="/tickets/novo" className="btn btn-primary" style={{ marginTop: 8 }}>
+                  Abrir ticket
+                </Link>
+              </Empty>
+            ) : (
+              <div className="table-wrap" style={{ border: 0 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Protocolo</th>
+                      <th>Título</th>
+                      <th>Sistema</th>
+                      {scope === 'company' && <th>Solicitante</th>}
+                      <th>Abertura</th>
+                      <th>Atualização</th>
+                      <th>Status</th>
+                      <th>Prioridade</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {open.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}><Link to={`/tickets/${t.id}`}>{t.protocol}</Link></td>
+                        <td><TicketLink t={t} /></td>
+                        <td>{t.system}</td>
+                        {scope === 'company' && <td>{t.requester}</td>}
+                        <td style={{ whiteSpace: 'nowrap' }}>{formatDate(t.createdAt)}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(t.updatedAt)}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}><StatusBadge status={t.status} /></td>
+                        <td style={{ whiteSpace: 'nowrap' }}><StatusBadge status={t.priority} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="card" aria-labelledby="mt-closed">
+            <div className="section-card-title">
+              <h2 id="mt-closed">Finalizados</h2>
+              <p>Tickets resolvidos ou fechados. Use a busca para encontrá-los.</p>
+            </div>
+            <div style={{ padding: '14px 20px' }}>
+              <label htmlFor="mt-closed-q" className="sr-only">
+                Pesquisar tickets finalizados
+              </label>
+              <input id="mt-closed-q" className="input" placeholder="Protocolo, título ou sistema" value={closedQuery} onChange={(e) => setClosedQuery(e.target.value)} />
+            </div>
+            {closedShown.length === 0 ? (
+              <p className="small muted" style={{ padding: '0 20px 20px', margin: 0 }}>Nenhum ticket finalizado corresponde à pesquisa.</p>
+            ) : (
+              <div className="table-wrap" style={{ border: 0 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Protocolo</th>
+                      <th>Título</th>
+                      <th>Sistema</th>
+                      <th>Encerramento</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {closedShown.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}><Link to={`/tickets/${t.id}`}>{t.protocol}</Link></td>
+                        <td><TicketLink t={t} /></td>
+                        <td>{t.system}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{formatDate(t.updatedAt)}</td>
+                        <td><StatusBadge status={t.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
       )}
-      {list.data && <Pagination page={filters.page} pageSize={15} total={list.data.total} onChange={(p) => set('page', String(p))} />}
     </div>
   );
 }

@@ -113,9 +113,11 @@ export interface AnnouncementAccessInfo {
   visibility: string;
 }
 
-/** Comunicados são exclusivos de usuários internos (publicados ou, para gestores, qualquer situação). */
+/** Publicados: externos para todos (conforme acesso anônimo); internos só para equipe. Rascunhos: gestores. */
 export function canViewAnnouncement(user: AuthUser | null, a: AnnouncementAccessInfo): boolean {
-  if (!user || user.userType !== 'internal') return false;
-  if (user.permissions.has('announcements.manage')) return true;
-  return a.status === 'published' && user.permissions.has('articles.view_internal');
+  if (a.status === 'published') {
+    if (a.visibility === 'external') return anonymousAllowed(user);
+    return !!user && user.userType === 'internal' && (user.permissions.has('articles.view_internal') || user.permissions.has('announcements.manage'));
+  }
+  return !!user && user.userType === 'internal' && user.permissions.has('announcements.manage');
 }

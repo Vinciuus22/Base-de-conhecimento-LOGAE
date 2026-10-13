@@ -425,7 +425,7 @@ export default async function integrationRoutes(app: FastifyInstance): Promise<v
       const after = (await fetchRow(id, client))!;
       const operationId = randomUUID();
       await writeChanges(client, id, operationId, user, changed.map((c) => ({ field: c.def.key, old: c.def.display(before), neu: c.def.display(after), type: c.def.key === 'status' ? 'status_change' : 'update' })));
-      await audit({ actorId: user.id, action: 'integration.update', entityType: 'customer_integration', entityId: id, data: { operationId, fields: changed.map((c) => c.def.key), statusFrom: has('status') ? before.status : undefined, statusTo: has('status') ? after.status : undefined }, ip: req.ip }, client);
+      await audit({ actorId: user.id, action: 'integration.update', entityType: 'customer_integration', entityId: id, data: { operationId, fields: changed.map((c) => c.def.key), changes: changed.map((c) => ({ field: c.def.label, before: c.def.display(before), after: c.def.display(after) })), statusFrom: has('status') ? before.status : undefined, statusTo: has('status') ? after.status : undefined }, ip: req.ip }, client);
       return { id, changed: true };
     });
     
@@ -453,7 +453,7 @@ export default async function integrationRoutes(app: FastifyInstance): Promise<v
         const r = await client.query(`UPDATE customer_integrations SET ${cols.map((c, i) => `${c} = $${i + 3}`).join(', ')}${cols.length ? ',' : ''} updated_at = now(), version = version + 1 WHERE id = $1 AND version = $2 RETURNING id`, [id, (body as { version: number }).version, ...cols.map((c) => sets[c])]);
         if (!r.rows.length) throw conflictError((await fetchRow(id, client))!);
         await writeChanges(client, id, operationId, user, changes);
-        await audit({ actorId: user.id, action, entityType: 'customer_integration', entityId: id, data: { operationId, ...data }, ip: req.ip }, client);
+        await audit({ actorId: user.id, action, entityType: 'customer_integration', entityId: id, data: { operationId, ...data, changes: changes.map((c) => ({ field: FIELD_LABELS[c.field] ?? c.field, before: c.old, after: c.neu })) }, ip: req.ip }, client);
       });
       
       return { integration: serialize((await fetchRow(id, getPool()))!) };
